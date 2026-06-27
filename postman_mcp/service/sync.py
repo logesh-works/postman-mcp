@@ -1,0 +1,276 @@
+"""Sync orchestration — the five selectors over one engine (PRD §2, §10.1, §12).
+
+Every write-capable entry follows the two-phase ``confirm`` contract: with
+``confirm=False`` it returns the rendered diff and writes nothing; with ``confirm=True``
+it re-runs and performs the merge + ``PUT`` (PRD §13, §17). All four selectors funnel
+through :func:`_run_sync`, which holds the safety rails.
+"""
+
+from __future__ import annotations
+
+import copy
+from pathlib import Path
+from typing import Optional
+
+from postman_mcp.config.store import ConfigError, save_config
+from postman_mcp.diff.render import render_plan
+from postman_mcp.engine.builder import build_request_item
+from postman_mcp.input.resolver import match_target, resolve_routes
+from postman_mcp.models import ChangeType, RouteModel, SyncPlan
+from postman_mcp.postman import merge
+from postman_mcp.postman.client import PostmanAuthError, PostmanError
+from postman_mcp.service.context import SyncContext, load_context
+
+
+# --- public selectors ---------------------------------------------------------------
+
+
+def sync_api(
+    target: str,
+    *,
+    into: Optional[str] = None,
+    confirm: bool = False,
+    confirm_collection: bool = False,
+    project_root: Path | str = ".",
+) -> str:
+    """Sync ONE API — the kernel (PRD §10.1, §12)."""
+    try:
+        ctx = load_context(project_root)
+    except (ConfigError, PostmanAuthError, PostmanError) as exc:
+        return f"Error: {exc}"
+
+    result = resolve_routes(ctx.config.config, ctx.project_root)
+    matches = match_target(result.routes, target)
+    if not matches:
+        return (
+            f"No route matched {target!r}. "
+            "Try a function name, \"METHOD /route\", or a path fragment."
+        )
+    if len(matches) > 1:
+        # Ambiguous — list candidates, never guess (PRD §18).
+        listed = "\n".join(f"  - {r.method} {r.path}" for r in matches)
+        return (
+            f"{target!r} is ambiguous — matched {len(matches)} routes:\n{listed}\n"
+            'Re-run with a precise target like "POST /payments".'
+        )
+    return _run_sync(
+        ctx, matches, into=into, confirm=confirm,
+        confirm_collection=confirm_collection, notes=result.notes,
+    )
+
+
+def sync_all(
+    *,
+    into: Optional[str] = None,
+    confirm: bool = False,
+    confirm_collection: bool = False,
+    project_root: Path | str = ".",
+) -> str:
+    """Sync the whole codebase (PRD §10.1)."""
+    try:
+        ctx = load_context(project_root)
+    except (ConfigError, PostmanAuthError, PostmanError) as exc:
+        return f"Error: {exc}"
+    result = resolve_routes(ctx.config.config, ctx.project_root)
+    if not result.routes:
+        return "No routes found. " + " ".join(result.notes)
+    return _run_sync(
+        ctx, result.routes, into=into, confirm=confirm,
+        confirm_collection=confirm_collection, notes=result.notes,
+        skipped=result.skipped,
+    )
+
+
+def sync_target(
+    target: str,
+    *,
+    into: Optional[str] = None,
+    confirm: bool = False,
+    confirm_collection: bool = False,
+    project_root: Path | str = ".",
+) -> str:
+    """Sync every API in one file / module / directory (PRD §10.1)."""
+    try:
+        ctx = load_context(project_root)
+    except (ConfigError, PostmanAuthError, PostmanError) as exc:
+        return f"Error: {exc}"
+    result = resolve_routes(ctx.config.config, ctx.project_root)
+    routes = _filter_by_file(result.routes, target)
+    if not routes:
+        return (
+            f"No routes found in {target!r}. Check the file/module/dir path."
+        )
+    return _run_sync(
+        ctx, routes, into=into, confirm=confirm,
+        confirm_collection=confirm_collection, notes=result.notes,
+        skipped=result.skipped,
+    )
+
+
+def sync_changes(
+    *,
+    last: Optional[int] = None,
+    since: Optional[str] = None,
+    confirm: bool = False,
+    confirm_collection: bool = False,
+    project_root: Path | str = ".",
+) -> str:
+    """Sync what changed since the last sync (PRD §10.1). Daily driver."""
+    try:
+        ctx = load_context(project_root)
+    except (ConfigError, PostmanAuthError, PostmanError) as exc:
+        return f"Error: {exc}"
+
+    from postman_mcp.git.reader import GitError, changed_files, resolve_since
+
+    anchor = since
+    if anchor is None and last is None:
+        anchor = ctx.config.lastUpdate.commit
+        if not anchor:
+            # First run with no marker → error gently, suggest syncall (PRD §18).
+            return (
+                "No last-sync marker yet. Run /postman:syncall for the first full "
+                "sync, then /postman:syncchanges will track changes from there."
+            )
+    try:
+        files = changed_files(
+            ctx.project_root, last=last, since=resolve_since(anchor) if anchor else None
+        )
+    except GitError as exc:
+        return f"Error reading git history: {exc}"
+
+    if not files:
+        return "No changed files since the last sync — nothing to do."
+
+    result = resolve_routes(ctx.config.config, ctx.project_root)
+    routes = _filter_by_changed_files(result.routes, files)
+    if not routes:
+        return (
+            "Changed files contain no recognizable routes "
+            f"({len(files)} file(s) changed)."
+        )
+    return _run_sync(
+        ctx, routes, into=into_default(ctx), confirm=confirm,
+        confirm_collection=confirm_collection, notes=result.notes,
+        skipped=result.skipped,
+    )
+
+
+def into_default(ctx: SyncContext) -> Optional[str]:
+    return ctx.config.config.defaultInto
+
+
+# --- the shared engine (safety rails live here) -------------------------------------
+
+
+def _run_sync(
+    ctx: SyncContext,
+    routes: list[RouteModel],
+    *,
+    into: Optional[str],
+    confirm: bool,
+    confirm_collection: bool,
+    notes: Optional[list[str]] = None,
+    skipped: Optional[list[str]] = None,
+) -> str:
+    """Build → diff → (confirm gate) → write. The only path that touches Postman."""
+    into_path = into if into is not None else ctx.config.config.defaultInto
+    gen_tests = ctx.config.config.generateTests  # owner preference: OFF by default
+    style = ctx.config.config.responseStyle  # "minimal" = success + error
+
+    built = [
+        (r, build_request_item(r, generate_tests=gen_tests, response_style=style))
+        for r in routes
+    ]
+
+    plan = SyncPlan(
+        collection_id=ctx.collection_id,
+        collection_name=ctx.collection_name,
+        is_default_collection=True,  # MVP always targets the configured collection
+        diffs=[
+            merge.compute_diff(ctx.collection, item, route, into_path or "/")
+            for route, item in built
+        ],
+        skipped=skipped or [],
+    )
+
+    # --- preview phase: diff only, no write (PRD §13, §17) ---
+    if not confirm:
+        ctx.client.close()
+        preview = render_plan(plan)
+        if notes:
+            preview = "\n".join(notes) + "\n\n" + preview
+        return preview
+
+    # --- write phase ---
+    # Non-default collection guard (PRD §11, §17). Vacuous in MVP (always default).
+    if not plan.is_default_collection and not confirm_collection:
+        ctx.client.close()
+        return (
+            "Refusing to write to a non-default collection without --confirm "
+            "(PRD §11, §17)."
+        )
+    if not plan.has_changes:
+        ctx.client.close()
+        return "Nothing to write — already up to date."
+
+    working = copy.deepcopy(ctx.collection)
+    new = mod = 0
+    for route, item in built:
+        change = merge.apply_route(working, item, route, into_path or "/")
+        if change is ChangeType.NEW:
+            new += 1
+        else:
+            mod += 1
+
+    try:
+        ctx.client.update_collection(ctx.collection_id, working)
+    except (PostmanAuthError, PostmanError) as exc:
+        ctx.client.close()
+        return f"Write aborted (no partial write): {exc}"
+    finally:
+        pass
+
+    # Record lastUpdate (PRD §12 step 8).
+    _record_sync(ctx)
+    ctx.client.close()
+    return f"✓ Wrote to Postman: {new} new · {mod} updated request(s)."
+
+
+def _record_sync(ctx: SyncContext) -> None:
+    from postman_mcp.git.reader import current_commit
+
+    commit = current_commit(ctx.project_root)
+    ctx.config.mark_synced(commit)
+    save_config(ctx.config, ctx.project_root)
+
+
+# --- route filters ------------------------------------------------------------------
+
+
+def _filter_by_file(routes: list[RouteModel], target: str) -> list[RouteModel]:
+    """Filter routes whose code_ref/path matches a file/module/dir (PRD §10.1)."""
+    needle = target.strip().lstrip("-").strip().lower()
+    out: list[RouteModel] = []
+    for r in routes:
+        ref = (r.code_ref or "").lower()
+        if needle in ref or needle in r.path.lower():
+            out.append(r)
+    return out
+
+
+def _filter_by_changed_files(
+    routes: list[RouteModel], files: list[str]
+) -> list[RouteModel]:
+    """Keep routes whose source file is among the changed files (PRD §10.1)."""
+    changed = {Path(f).as_posix().lower() for f in files}
+    out: list[RouteModel] = []
+    for r in routes:
+        ref = (r.code_ref or "")
+        ref_posix = Path(ref).as_posix().lower() if ref else ""
+        if any(ref_posix and ref_posix in c or (c and c in ref_posix) for c in changed):
+            out.append(r)
+    # If routes have no file refs (pure OpenAPI), fall back to syncing all on change.
+    if not out and routes and all(not r.code_ref or "/" not in (r.code_ref or "") for r in routes):
+        return routes
+    return out

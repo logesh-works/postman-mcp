@@ -1,0 +1,17 @@
+---
+description: Generate a Postman environment from code (dummy vars; secrets masked). Diff first.
+argument-hint: [env_name]
+---
+
+Create a Postman environment with variables inferred from code (PRD §10.1, §16).
+
+Name: `$ARGUMENTS`
+
+Do this:
+1. Call the **`postman-mcp` MCP server's `createenv` tool** with `name` set to the
+   argument (or let it default). **Leave `confirm` false** — returns a preview of the
+   variables that would be created.
+2. Show the preview. Secret-like values (`key`/`token`/`secret`/`password`) are masked
+   and flagged for manual fill; `{{base_url}}` and `{{token}}` are included (PRD §16).
+3. Ask **"Create this environment in Postman? [y/n]"**; only on yes call again with
+   `confirm: true`.

@@ -1,0 +1,13 @@
+{
+  "name": "postman-mcp-express-example",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Express payments API — Postman MCP code-parsing example",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "express": "^4.19.0"
+  }
+}

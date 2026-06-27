@@ -1,0 +1,56 @@
+name: ✨ Feature request
+description: Suggest an idea or improvement
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea! Please check the [ROADMAP](../blob/main/ROADMAP.md) first —
+        your request may already be planned.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the pain point. Start from the user's situation, not the solution.
+      placeholder: When I add a route in a Django `DefaultRouter`, `syncall` misses it because...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like to happen? A command, flag, or behavior change.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you thought about, and why they fall short.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Engine (request building)
+        - Input resolver / OpenAPI
+        - Framework parser
+        - Commands / CLI
+        - Postman client / merge
+        - Setup (init / doctor / registration)
+        - Docs
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I'm willing to open a pull request for this.

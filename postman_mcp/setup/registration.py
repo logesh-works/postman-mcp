@@ -1,0 +1,81 @@
+"""Register the MCP server with Claude Code (PRD §C.2a).
+
+``init`` writes the project-scoped ``.mcp.json`` entry directly — deterministic, works
+whether or not the ``claude`` CLI is on PATH — and additionally calls ``claude mcp add``
+when the CLI is available. Also keeps ``.gitignore`` covering the secret file (§7).
+"""
+
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+from pathlib import Path
+from typing import Any
+
+from postman_mcp.config.store import SECRET_FILENAME
+
+MCP_CONFIG_FILENAME = ".mcp.json"
+SERVER_NAME = "postman-mcp"
+
+# PRD §C.2a — the entry that launches the stdio server.
+_SERVER_ENTRY: dict[str, Any] = {
+    "command": "postman-mcp",
+    "args": ["serve"],
+    "cwd": "${workspaceFolder}",
+}
+
+
+def _mcp_config_path(project_root: Path | str) -> Path:
+    return Path(project_root) / MCP_CONFIG_FILENAME
+
+
+def register_mcp_server(project_root: Path | str = ".") -> Path:
+    """Add/refresh the ``postman-mcp`` server in project ``.mcp.json`` (idempotent)."""
+    path = _mcp_config_path(project_root)
+    data: dict[str, Any] = {}
+    if path.exists():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            data = {}
+    servers = data.setdefault("mcpServers", {})
+    servers[SERVER_NAME] = dict(_SERVER_ENTRY)
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+    # Best-effort: also register via the Claude CLI if present (PRD §C.2a).
+    if shutil.which("claude"):
+        try:  # pragma: no cover - depends on external CLI
+            subprocess.run(
+                ["claude", "mcp", "add", SERVER_NAME, "postman-mcp", "serve"],
+                cwd=str(project_root),
+                capture_output=True,
+                timeout=15,
+            )
+        except Exception:
+            pass  # .mcp.json is the source of truth; CLI is a bonus.
+    return path
+
+
+def is_server_registered(project_root: Path | str = ".") -> bool:
+    """Doctor check #4 — server present in ``.mcp.json`` (PRD §E)."""
+    path = _mcp_config_path(project_root)
+    if not path.exists():
+        return False
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return False
+    return SERVER_NAME in data.get("mcpServers", {})
+
+
+def ensure_gitignore(project_root: Path | str = ".") -> None:
+    """Ensure ``.postman-mcp.secret`` is gitignored (PRD §7)."""
+    path = Path(project_root) / ".gitignore"
+    line = SECRET_FILENAME
+    existing = path.read_text(encoding="utf-8") if path.exists() else ""
+    if line in existing.splitlines():
+        return
+    prefix = "" if existing.endswith("\n") or not existing else "\n"
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(f"{prefix}{line}\n")

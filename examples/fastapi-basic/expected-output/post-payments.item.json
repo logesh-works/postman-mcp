@@ -1,0 +1,59 @@
+{
+  "name": "Create payment",
+  "request": {
+    "method": "POST",
+    "header": [
+      { "key": "Content-Type", "value": "application/json" },
+      { "key": "Authorization", "value": "Bearer {{token}}" }
+    ],
+    "url": {
+      "raw": "{{base_url}}/payments",
+      "host": ["{{base_url}}"],
+      "path": ["payments"]
+    },
+    "body": {
+      "mode": "raw",
+      "raw": "{\n  \"amount\": 4200,\n  \"currency\": \"USD\",\n  \"method\": \"card\"\n}",
+      "options": { "raw": { "language": "json" } }
+    },
+    "description": "Create a new payment.\n\nCharges the given amount and returns the created payment record."
+  },
+  "response": [
+    {
+      "name": "201 Created",
+      "code": 201,
+      "status": "Created",
+      "header": [{ "key": "Content-Type", "value": "application/json" }],
+      "body": "{\n  \"id\": \"pay_abc123\",\n  \"amount\": 4200,\n  \"currency\": \"USD\",\n  \"status\": \"succeeded\",\n  \"created_at\": \"2026-06-27T10:00:00Z\"\n}"
+    },
+    {
+      "name": "401 Unauthorized",
+      "code": 401,
+      "status": "Unauthorized",
+      "body": "{\n  \"detail\": \"Not authenticated\"\n}"
+    },
+    {
+      "name": "422 Unprocessable Entity",
+      "code": 422,
+      "status": "Unprocessable Entity",
+      "body": "{\n  \"detail\": [\n    { \"loc\": [\"body\", \"amount\"], \"msg\": \"value must be > 0\", \"type\": \"value_error\" }\n  ]\n}"
+    }
+  ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('status is 201', function () {",
+          "  pm.response.to.have.status(201);",
+          "});",
+          "pm.test('schema: PaymentResponse', function () {",
+          "  const body = pm.response.json();",
+          "  pm.expect(body).to.have.all.keys('id', 'amount', 'currency', 'status', 'created_at');",
+          "});"
+        ]
+      }
+    }
+  ]
+}

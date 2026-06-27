@@ -1,0 +1,104 @@
+name: 🐛 Bug report
+description: Something isn't working the way it should
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report. The more precise you are, the
+        faster we can fix it. Please **do not** include your Postman API key or any
+        secret in this report.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, and what you expected instead.
+      placeholder: When I ran `/postman:syncapi createPayment`, the body was empty, but I expected...
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Exact commands, in order. Include the framework and how the route is defined.
+      placeholder: |
+        1. `postman-mcp init` with framework = fastapi
+        2. In Claude Code, run `/postman:syncapi createPayment`
+        3. See the diff is missing the request body
+    validations:
+      required: true
+
+  - type: dropdown
+    id: command
+    attributes:
+      label: Which command?
+      options:
+        - "postman-mcp init"
+        - "postman-mcp doctor"
+        - "postman-mcp serve"
+        - "/postman:syncapi"
+        - "/postman:syncchanges"
+        - "/postman:sync"
+        - "/postman:syncall"
+        - "/postman:createenv"
+        - "/postman:status"
+        - "Other / not sure"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: framework
+    attributes:
+      label: Framework
+      options:
+        - FastAPI
+        - Express
+        - Django REST Framework
+        - NestJS
+        - Other / N/A
+    validations:
+      required: true
+
+  - type: dropdown
+    id: input-mode
+    attributes:
+      label: Input mode
+      description: From your `postman-mcp.json` → `config.inputMode`.
+      options:
+        - openapi
+        - code
+        - not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: Output of `postman-mcp version` plus your OS and Python version.
+      placeholder: |
+        postman-mcp 0.1.0
+        Windows 11 / Python 3.12.3
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output
+      description: Error messages, diff output, or `postman-mcp doctor` results. Redact any secrets.
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmations
+      options:
+        - label: I have removed any API keys or secrets from this report.
+          required: true
+        - label: I searched existing issues and this is not a duplicate.
+          required: true

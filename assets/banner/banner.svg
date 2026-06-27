@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" fill="none" role="img" aria-label="Postman MCP — sync your API code into Postman">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="640" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1B1B1F"/>
+      <stop offset="1" stop-color="#2A1810"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+
+  <!-- logo tile -->
+  <g transform="translate(96 232)">
+    <rect width="176" height="176" rx="38" fill="#FF6C37"/>
+    <path d="M58 124V70l30 22 30-22v54" stroke="#fff" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="88" cy="92" r="9" fill="#fff"/>
+  </g>
+
+  <!-- wordmark + tagline -->
+  <text x="320" y="296" font-family="Inter, system-ui, sans-serif" font-size="76" font-weight="800" fill="#ffffff">Postman MCP</text>
+  <text x="322" y="352" font-family="Inter, system-ui, sans-serif" font-size="32" font-weight="500" fill="#FFB088">Sync your API code into Postman — zero manual fill.</text>
+  <text x="322" y="402" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="24" fill="#9aa0a6">$ /postman:syncapi createPayment  →  diff  →  done</text>
+</svg>

@@ -1,0 +1,120 @@
+site_name: Postman MCP
+site_description: Sync your API code into Postman collections — OpenAPI-first, zero manual fill, diff before every write.
+site_url: https://logesh-works.github.io/postman-mcp/
+repo_url: https://github.com/logesh-works/postman-mcp
+repo_name: logesh-works/postman-mcp
+edit_uri: edit/main/docs/
+copyright: Copyright &copy; 2026 Logeshkumar (logeshkumar.in)
+
+# Design docs kept in the repo but intentionally outside the published nav.
+not_in_nav: |
+  /implementation-plan.md
+  /prd-checklist.md
+
+validation:
+  nav:
+    omitted_files: info
+  links:
+    absolute_links: ignore
+    unrecognized_links: info
+
+theme:
+  name: material
+  logo: assets/logo.svg
+  favicon: assets/favicon.svg
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.action.edit
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep orange
+      accent: orange
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep orange
+      accent: orange
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+plugins:
+  - search
+  - mermaid2
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:mermaid2.fence_mermaid_custom
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/logesh-works/postman-mcp
+  version:
+    provider: mike
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Installation: getting-started/installation.md
+      - Quickstart: getting-started/quickstart.md
+      - Configuration: getting-started/configuration.md
+  - Commands:
+      - Overview: commands/index.md
+      - syncapi: commands/syncapi.md
+      - syncchanges: commands/syncchanges.md
+      - sync: commands/sync.md
+      - syncall: commands/syncall.md
+      - createenv: commands/createenv.md
+      - status: commands/status.md
+  - Architecture:
+      - Overview: architecture/overview.md
+      - The engine: architecture/engine.md
+      - Input resolver: architecture/resolver.md
+      - Merge engine: architecture/merge-engine.md
+      - Diff engine: architecture/diff-engine.md
+  - Frameworks:
+      - FastAPI: frameworks/fastapi.md
+      - Django REST Framework: frameworks/django.md
+      - Express: frameworks/express.md
+      - NestJS: frameworks/nestjs.md
+  - Development:
+      - Contributing: development/contributing.md
+      - Release process: development/release-process.md
+  - Roadmap: roadmap.md

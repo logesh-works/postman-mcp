@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" role="img" aria-label="Postman MCP">
+  <rect width="48" height="48" rx="10" fill="#FF6C37"/>
+  <path d="M24 9 39 24 24 39 9 24Z" fill="#fff" fill-opacity="0.14"/>
+  <path d="M16 30V18l8 6 8-6v12" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="24" cy="24" r="2.4" fill="#fff"/>
+</svg>
