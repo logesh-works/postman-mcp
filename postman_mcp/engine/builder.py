@@ -1,6 +1,6 @@
-"""The engine — one normalized route model → one Postman Collection v2.1 item (PRD §8).
+"""The engine — one normalized route model → one Postman Collection v2.1 item.
 
-Pipeline (PRD §8 steps 1–8):
+Pipeline:
 1. Method + URL (``{{base_url}}`` prefix)      5. Responses (one per declared status)
 2. Params (path/query/header)                  6. Test scripts (status + schema)
 3. Request body (typed → example)              7. Examples (reused across request+saved)
@@ -19,7 +19,7 @@ from postman_mcp.engine.examples import example_body, example_for_param
 from postman_mcp.engine.tests import build_test_script
 from postman_mcp.models import BodyModel, ResponseModel, RouteModel
 
-# The standard error set every synced API gets (PRD §8 step 5, §14).
+# The standard error set every synced API gets.
 _STANDARD_ERRORS = (400, 401, 403, 404, 422, 500)
 _ERROR_DESCRIPTIONS = {
     400: "Bad Request",
@@ -38,7 +38,7 @@ def build_request_item(
     response_style: str = "minimal",
     business_tests: bool = False,
 ) -> dict[str, Any]:
-    """Assemble the Collection v2.1 item for a route (PRD §8).
+    """Assemble the Collection v2.1 item for a route.
 
     ``response_style="minimal"`` saves one success + one error response; ``"full"`` saves
     every declared 2xx plus the standard error set. Test-script events are attached only
@@ -79,7 +79,7 @@ def _item_name(route: RouteModel) -> str:
 
 
 def _url(route: RouteModel) -> dict[str, Any]:
-    """Step 1 — ``{{base_url}}`` + path; query params attached (PRD §8 step 1/2)."""
+    """Step 1 — ``{{base_url}}`` + path; query params attached."""
     raw_path = route.path.lstrip("/")
     segments = raw_path.split("/") if raw_path else []
     path_segments = [
@@ -114,7 +114,7 @@ def _headers(route: RouteModel) -> list[dict[str, Any]]:
 
 
 def _body(body: BodyModel) -> dict[str, Any]:
-    """Step 3 — typed body → JSON example (PRD §8 step 3, §8.3)."""
+    """Step 3 — typed body → JSON example."""
     example = example_body(body)
     return {
         "mode": "raw",
@@ -126,7 +126,7 @@ def _body(body: BodyModel) -> dict[str, Any]:
 def _responses(
     route: RouteModel, request: dict[str, Any], style: str = "minimal"
 ) -> list[dict[str, Any]]:
-    """Step 5 — saved responses (PRD §8 step 5).
+    """Step 5 — saved responses.
 
     ``minimal`` (default): one success + one error. ``full``: every declared 2xx plus
     the standard error set.
@@ -152,7 +152,7 @@ def _responses(
         )
         return saved
 
-    # "full" — every declared response + the standard error set (PRD §8 step 5, §14).
+    # "full" — every declared response + the standard error set.
     saved = []
     declared_codes = {r.status for r in route.responses}
     for resp in route.responses:
@@ -180,7 +180,7 @@ def _saved_response(
     elif 200 <= code < 300:
         body_text = "{}"
     else:
-        # Standard framework-style error envelope (PRD §8 step 5).
+        # Standard framework-style error envelope.
         body_text = json.dumps({"detail": name}, indent=2)
     return {
         "name": f"{code} {name}",
@@ -194,7 +194,7 @@ def _saved_response(
 
 
 def _test_event(route: RouteModel, business: bool) -> dict[str, Any]:
-    """Step 6 — test script as a Postman ``test`` event (PRD §8 step 6)."""
+    """Step 6 — test script as a Postman ``test`` event."""
     script = build_test_script(route, business=business)
     return {
         "listen": "test",

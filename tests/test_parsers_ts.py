@@ -1,4 +1,4 @@
-"""Django REST Framework + NestJS parsers (PRD §9.4)."""
+"""Django REST Framework + NestJS parsers."""
 
 from __future__ import annotations
 

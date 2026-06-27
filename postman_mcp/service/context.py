@@ -1,7 +1,7 @@
-"""Shared sync context — config + authenticated client + live collection (PRD §6, §12).
+"""Shared sync context — config + authenticated client + live collection.
 
-Centralizes the "read the live collection" step (PRD §6.4) so every command matches
-against current Postman state rather than a local registry (§15).
+Centralizes the "read the live collection" step so every command matches
+against current Postman state rather than a local registry.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ class SyncContext:
 
 
 def load_context(project_root: Path | str = ".") -> SyncContext:
-    """Load config, resolve the key, and read the live target collection (PRD §6.4)."""
+    """Load config, resolve the key, and read the live target collection."""
     root = Path(project_root)
     config = load_config(root)
     if not config.config.collectionId:

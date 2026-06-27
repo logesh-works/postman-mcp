@@ -1,7 +1,7 @@
-"""Code-parsing fallback parsers (PRD §9.4). Dispatch by framework.
+"""Code-parsing fallback parsers. Dispatch by framework.
 
 Used when no OpenAPI spec covers a route. Each parser emits the same normalized
-``RouteModel`` as the OpenAPI path (PRD §9.1), tagged ``source=code``.
+``RouteModel`` as the OpenAPI path, tagged ``source=code``.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from postman_mcp.models import RouteModel
 def parse_framework(
     framework: Optional[str], project_root: Path | str
 ) -> tuple[list[RouteModel], list[str]]:
-    """Dispatch to the framework parser; returns ``(routes, skipped)`` (PRD §9.4)."""
+    """Dispatch to the framework parser; returns ``(routes, skipped)``."""
     if not framework:
         return [], []
     fw = framework.lower()

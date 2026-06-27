@@ -1,7 +1,7 @@
-"""Realistic example values from a field's type + name (PRD §8 step 3/7, §8.3).
+"""Realistic example values from a field's type + name.
 
 `email` → a fake email, `amount` → a number, `created_at` → an ISO date. Deterministic
-(no randomness) so re-syncs produce identical examples and the diff stays stable (§15).
+(no randomness) so re-syncs produce identical examples and the diff stays stable.
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ from typing import Any
 
 from postman_mcp.models import BodyField, BodyModel, FieldType, Param
 
-# Name-keyed heuristics (checked as substrings, first match wins) — PRD §8.3.
+# Name-keyed heuristics (checked as substrings, first match wins).
 _NAME_HINTS: list[tuple[tuple[str, ...], Any]] = [
     (("email",), "user@example.com"),
     (("first_name", "firstname"), "Jane"),
@@ -47,7 +47,7 @@ _TYPE_DEFAULTS: dict[FieldType, Any] = {
 
 
 def example_for_field(field: BodyField) -> Any:
-    """Produce one example value for a body field (PRD §8.3)."""
+    """Produce one example value for a body field."""
     if field.type is FieldType.OBJECT and field.fields:
         return {f.name: example_for_field(f) for f in field.fields}
     if field.type is FieldType.ARRAY:
@@ -72,11 +72,11 @@ def _scalar_example(name: str, ftype: FieldType) -> Any:
 
 
 def example_body(body: BodyModel) -> dict[str, Any]:
-    """A full example JSON body (PRD §8 step 3/7)."""
+    """A full example JSON body."""
     return {f.name: example_for_field(f) for f in body.fields}
 
 
 def example_for_param(param: Param) -> str:
-    """Example value for a path/query/header param (PRD §8 step 2)."""
+    """Example value for a path/query/header param."""
     value = _scalar_example(param.name, param.type)
     return str(value)

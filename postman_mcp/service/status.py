@@ -1,4 +1,4 @@
-"""``status`` — read-only drift check (PRD §10.2). ``syncall``'s diff minus the write.
+"""``status`` — read-only drift check. ``syncall``'s diff minus the write.
 
 Shows what *would* sync — new / modified / deprecated routes and anything drifted from
 code — without writing anything (no confirm step).
@@ -22,7 +22,7 @@ from postman_mcp.service.context import load_context
 def status_report(
     *, since: Optional[str] = None, project_root: Path | str = "."
 ) -> str:
-    """Compute drift without writing (PRD §10.2)."""
+    """Compute drift without writing."""
     try:
         ctx = load_context(project_root)
     except (ConfigError, PostmanAuthError, PostmanError) as exc:
@@ -41,7 +41,7 @@ def status_report(
         )
         diffs.append(merge.compute_diff(ctx.collection, item, route, into))
 
-    # Routes present in Postman but gone from code → would be soft-deprecated (PRD §15).
+    # Routes present in Postman but gone from code → would be soft-deprecated.
     for parent, _idx, item in merge._iter_request_items(ctx.collection.get("item", [])):
         key = merge.item_key(item)
         if key and key not in code_keys and not (item.get("name", "")).startswith(

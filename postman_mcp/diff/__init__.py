@@ -1,4 +1,4 @@
-"""Diff preview rendering (PRD §13)."""
+"""Diff preview rendering."""
 
 from postman_mcp.diff.render import render_plan, render_status
 

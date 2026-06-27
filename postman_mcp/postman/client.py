@@ -1,10 +1,10 @@
-"""REST client for ``https://api.getpostman.com`` (PRD §6).
+"""REST client for ``https://api.getpostman.com``.
 
-Auth: a single personal API key in the ``X-Api-Key`` header (§6.1). The public Postman
+Auth: a single personal API key in the ``X-Api-Key`` header. The public Postman
 API reads/writes a collection as one whole object — there is no per-request endpoint —
-so writes are done by the merge layer: read → merge → ``PUT`` (§6.4 note).
+so writes are done by the merge layer: read → merge → ``PUT``.
 
-API surface used (§6.4):
+API surface used:
 | Validate key                 | GET  /me                       |
 | List workspaces / collections| GET  /workspaces, /collections |
 | Read collection              | GET  /collections/{uid}        |
@@ -22,7 +22,7 @@ import httpx
 
 BASE_URL = "https://api.getpostman.com"
 _MAX_RETRIES = 3
-_BACKOFF_BASE = 0.5  # seconds; retry with backoff on 5xx / 429 (PRD §18)
+_BACKOFF_BASE = 0.5  # seconds; retry with backoff on 5xx / 429
 
 
 class PostmanError(Exception):
@@ -30,14 +30,14 @@ class PostmanError(Exception):
 
 
 class PostmanAuthError(PostmanError):
-    """Invalid / expired API key — stop, explain, never partial-write (PRD §18)."""
+    """Invalid / expired API key — stop, explain, never partial-write."""
 
 
 class PostmanClient:
     """Thin synchronous wrapper over the Postman REST API.
 
     Retries transient 5xx / 429 with exponential backoff, then aborts cleanly with no
-    partial collection write (PRD §18).
+    partial collection write.
     """
 
     def __init__(
@@ -63,7 +63,7 @@ class PostmanClient:
     def __exit__(self, *exc: object) -> None:
         self.close()
 
-    # -- low-level request with retry/backoff (PRD §18) -----------------------------
+    # -- low-level request with retry/backoff -----------------------------
 
     def _request(self, method: str, path: str, **kwargs: Any) -> dict[str, Any]:
         last_exc: Optional[Exception] = None
@@ -101,10 +101,10 @@ class PostmanClient:
             f"{method} {path} failed after {_MAX_RETRIES} retries: {last_exc}"
         )
 
-    # -- API surface (PRD §6.4) -----------------------------------------------------
+    # -- API surface -----------------------------------------------------
 
     def validate_key(self) -> dict[str, Any]:
-        """``GET /me`` — validates the key (PRD §6.3)."""
+        """``GET /me`` — validates the key."""
         return self._request("GET", "/me")
 
     def list_workspaces(self) -> list[dict[str, Any]]:
@@ -119,11 +119,11 @@ class PostmanClient:
         )
 
     def get_collection(self, uid: str) -> dict[str, Any]:
-        """``GET /collections/{uid}`` → full collection object (PRD §6.4)."""
+        """``GET /collections/{uid}`` → full collection object."""
         return self._request("GET", f"/collections/{uid}").get("collection", {})
 
     def update_collection(self, uid: str, collection: dict[str, Any]) -> dict[str, Any]:
-        """``PUT /collections/{uid}`` — the only write path (PRD §6.4 note)."""
+        """``PUT /collections/{uid}`` — the only write path."""
         return self._request(
             "PUT", f"/collections/{uid}", json={"collection": collection}
         )

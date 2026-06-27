@@ -1,4 +1,4 @@
-"""Postman REST client + whole-collection merge (PRD §6, §15)."""
+"""Postman REST client + whole-collection merge."""
 
 from postman_mcp.postman.client import PostmanAuthError, PostmanClient, PostmanError
 

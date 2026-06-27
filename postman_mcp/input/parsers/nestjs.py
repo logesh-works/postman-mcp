@@ -1,8 +1,8 @@
-"""NestJS code parser (PRD §9.4) — decorators over ``.ts`` files.
+"""NestJS code parser — decorators over ``.ts`` files.
 
 Routes from ``@Controller('prefix')`` + ``@Post()`` / ``@Get(':id')``; body shapes from
 DTO classes (``@Body() dto: CreateUserDto``) with class-validator fields; auth from
-``@UseGuards(AuthGuard)``. Heuristic (no TS AST), so types are best-effort (PRD §9.4).
+``@UseGuards(AuthGuard)``. Heuristic (no TS AST), so types are best-effort.
 """
 
 from __future__ import annotations

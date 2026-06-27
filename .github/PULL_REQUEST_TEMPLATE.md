@@ -20,7 +20,7 @@ Fixes #<!-- issue number, if any -->
 
 ## What changed
 
-<!-- Bullet the concrete changes. Reference files or PRD sections where helpful. -->
+<!-- Bullet the concrete changes. Reference relevant files where helpful. -->
 
 -
 

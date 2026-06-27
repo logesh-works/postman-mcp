@@ -4,7 +4,7 @@ argument-hint: [--since commit|date|last]
 ---
 
 Show what would sync — new / modified / deprecated routes and anything drifted from
-code — **without writing** (PRD §10.2). This is `syncall`'s diff minus the write.
+code — **without writing**. This is `syncall`'s diff minus the write.
 
 Args: `$ARGUMENTS`
 

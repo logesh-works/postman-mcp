@@ -1,6 +1,6 @@
 """Setup helpers used by ``init``/``doctor``: MCP registration + slash-command install.
 
-PRD §C.2 — both mechanisms handled automatically so the user never hand-edits config.
+Both mechanisms are handled automatically so the user never hand-edits config.
 """
 
 from postman_mcp.setup.installer import (

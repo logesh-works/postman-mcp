@@ -1,4 +1,4 @@
-"""Secret manager — the API key lives by reference, never in the repo (PRD §6.2, §16).
+"""Secret manager — the API key lives by reference, never in the repo.
 
 Three locations, by preference:
 1. OS credential store via ``keyring`` (default)   → ``keychain:<name>``
@@ -20,7 +20,7 @@ KEYRING_SERVICE = "postman-mcp"
 
 
 class SecretError(Exception):
-    """Raised when the key cannot be resolved from its reference (PRD §18)."""
+    """Raised when the key cannot be resolved from its reference."""
 
 
 def _keyring():
@@ -31,7 +31,7 @@ def _keyring():
 
 
 def store_api_key(ref: str, key: str, project_root: Path | str = ".") -> None:
-    """Persist the raw key to the location named by ``ref`` (PRD §6.2).
+    """Persist the raw key to the location named by ``ref``.
 
     Never writes to ``postman-mcp.json``. For ``env:`` refs the caller is responsible
     for exporting the variable; we just validate the shape.
@@ -77,10 +77,10 @@ def resolve_api_key(ref: str, project_root: Path | str = ".") -> str:
     raise SecretError(f"Unknown apiKeyRef scheme: {scheme!r}")
 
 
-# Values matching these patterns are masked in generated environments (PRD §16).
+# Values matching these patterns are masked in generated environments.
 _SECRET_PATTERN = re.compile(r"(key|token|secret|password)", re.IGNORECASE)
 
 
 def mask_if_secret(name: str) -> bool:
-    """True when an env-var name looks secret and must be masked/flagged (PRD §16)."""
+    """True when an env-var name looks secret and must be masked/flagged."""
     return bool(_SECRET_PATTERN.search(name))

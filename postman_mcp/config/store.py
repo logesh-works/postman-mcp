@@ -1,6 +1,6 @@
 """Read/write ``postman-mcp.json`` — the small, committable, secret-free side-reference.
 
-PRD §7: holds config + a last-update marker only, never a mirror of what was pushed and
+Holds config + a last-update marker only, never a mirror of what was pushed and
 **never a secret** (only ``apiKeyRef``).
 """
 
@@ -18,33 +18,33 @@ SECRET_FILENAME = ".postman-mcp.secret"
 
 
 class ConfigError(Exception):
-    """Raised when config is missing/invalid (PRD §18: tell user to run init)."""
+    """Raised when config is missing/invalid."""
 
 
 class ProjectConfig(BaseModel):
-    """The ``config`` block of ``postman-mcp.json`` (PRD §7 shape)."""
+    """The ``config`` block of ``postman-mcp.json``."""
 
     framework: Optional[str] = None
-    inputMode: str = "openapi"  # "openapi" | "code" (PRD §9)
+    inputMode: str = "openapi"  # "openapi" | "code"
     openApiSource: Optional[str] = None
     workspace: Optional[str] = None
     collectionId: Optional[str] = None
     defaultInto: str = "/"
-    apiKeyRef: str = "keychain:postman-mcp"  # reference only, never the key (§6.2)
+    apiKeyRef: str = "keychain:postman-mcp"  # reference only, never the key
     # Output shaping (owner preference; reversible):
     generateTests: bool = False  # add status/schema test scripts to requests
     responseStyle: str = "minimal"  # "minimal" = 1 success + 1 error · "full" = 2xx + standard errors
 
 
 class LastUpdate(BaseModel):
-    """Last-synced marker powering ``syncchanges`` zero-arg default (PRD §7)."""
+    """Last-synced marker powering ``syncchanges`` zero-arg default."""
 
     commit: Optional[str] = None
     at: Optional[str] = None
 
 
 class PostmanMcpConfig(BaseModel):
-    """The full ``postman-mcp.json`` document (PRD §7)."""
+    """The full ``postman-mcp.json`` document."""
 
     version: int = 1
     config: ProjectConfig = Field(default_factory=ProjectConfig)
@@ -62,7 +62,7 @@ def config_path(project_root: Path | str = ".") -> Path:
 
 
 def load_config(project_root: Path | str = ".") -> PostmanMcpConfig:
-    """Load and validate config. Raises :class:`ConfigError` if absent (PRD §18)."""
+    """Load and validate config. Raises :class:`ConfigError` if absent."""
     path = config_path(project_root)
     if not path.exists():
         raise ConfigError(
@@ -76,7 +76,7 @@ def load_config(project_root: Path | str = ".") -> PostmanMcpConfig:
 
 
 def save_config(cfg: PostmanMcpConfig, project_root: Path | str = ".") -> Path:
-    """Write config as pretty, stable JSON (committable; PRD §7)."""
+    """Write config as pretty, stable JSON (committable)."""
     path = config_path(project_root)
     path.write_text(
         json.dumps(cfg.model_dump(), indent=2) + "\n", encoding="utf-8"

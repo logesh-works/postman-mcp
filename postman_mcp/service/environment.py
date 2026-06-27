@@ -1,9 +1,9 @@
-"""``createenv`` — generate a Postman environment from code (PRD §10.1, §16).
+"""``createenv`` — generate a Postman environment from code.
 
 Variables are inferred from the resolved routes (always from code/spec). Secret-like
 names (``key``/``token``/``secret``/``password``) are masked (Postman "secret" type) and
 flagged for manual fill. Always adds ``{{base_url}}`` and ``{{token}}`` — the variables
-the synced requests reference (PRD §10.1, §16).
+the synced requests reference.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from postman_mcp.service.context import load_context
 
 
 def _infer_variables(routes) -> list[dict[str, Any]]:
-    """Collect candidate env variables from headers/query params (PRD §10.1)."""
+    """Collect candidate env variables from headers/query params."""
     names: dict[str, bool] = {}
     # Base variables every synced request references.
     names["base_url"] = False
@@ -53,7 +53,7 @@ def create_env(
     confirm: bool = False,
     project_root: Path | str = ".",
 ) -> str:
-    """Preview (confirm=False) or create (confirm=True) the environment (PRD §13, §16)."""
+    """Preview (confirm=False) or create (confirm=True) the environment."""
     try:
         ctx = load_context(project_root)
     except (ConfigError, PostmanAuthError, PostmanError) as exc:

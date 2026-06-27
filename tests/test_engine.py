@@ -1,4 +1,4 @@
-"""The engine: RouteModel → Postman Collection v2.1 item (PRD §8)."""
+"""The engine: RouteModel → Postman Collection v2.1 item."""
 
 from __future__ import annotations
 
@@ -68,7 +68,7 @@ def test_path_param_becomes_postman_variable(get_payment_route):
     assert any(v["key"] == "payment_id" for v in url.get("variable", []))
 
 
-# --- examples (PRD §8.3) -----------------------------------------------------------
+# --- examples -----------------------------------------------------------
 
 def test_examples_are_name_aware():
     assert example_for_field(BodyField(name="email", type=FieldType.STRING)) == "user@example.com"

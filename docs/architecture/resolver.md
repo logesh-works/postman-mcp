@@ -30,7 +30,7 @@ RouteModel {
 }
 ```
 
-## "OpenAPI available?" — how it's decided (PRD §9.2)
+## "OpenAPI available?" — how it's decided
 
 In priority order, the resolver looks for a spec:
 
@@ -74,7 +74,7 @@ Used when no spec exists — most commonly **Express**, which has no native spec
 
 See the [framework guides](../frameworks/fastapi.md) for the specifics and known limits.
 
-## Per-route mixing (PRD §9.5)
+## Per-route mixing
 
 Resolution is **per route, not per project**. If a spec covers most endpoints but misses a
 few (a manually mounted router, an undocumented route), those individual routes fall back

@@ -1,4 +1,4 @@
-"""FastAPI code parser (PRD §9.4) — used when no OpenAPI spec is available.
+"""FastAPI code parser — used when no OpenAPI spec is available.
 
 Extracts routes from ``@app.post("/path")`` / ``@router.get(...)`` decorators, body and
 response shapes from Pydantic models, and auth from ``Depends(get_current_user)``.
@@ -6,7 +6,7 @@ response shapes from Pydantic models, and auth from ``Depends(get_current_user)`
 Pydantic v1 vs v2: model fields are read **statically from the AST** (both versions use
 ``name: type`` annotations), so this parser is version-agnostic and needs no import of
 project code. When FastAPI serves OpenAPI (Path A) this parser is moot — the spec already
-carries resolved schemas (PRD §9.4 note).
+carries resolved schemas.
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ _AUTH_HINTS = ("get_current_user", "current_user", "require_auth", "auth", "veri
 
 
 def parse(project_root: Path | str) -> tuple[list[RouteModel], list[str]]:
-    """Parse a FastAPI project into route models (PRD §9.4)."""
+    """Parse a FastAPI project into route models."""
     root = Path(project_root)
     models: dict[str, BodyModel] = {}
     files: list[tuple[Path, ast.Module]] = []

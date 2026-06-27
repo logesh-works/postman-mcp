@@ -18,7 +18,7 @@ Instead, use one of:
 
 1. **GitHub private vulnerability reporting** — the preferred channel:
    [Report a vulnerability](https://github.com/logesh-works/postman-mcp/security/advisories/new).
-2. **Email** — **security@logeshkumar.in** with the details below.
+2. **Email** — **logeshkumar.dev@gmail.com** with the details below.
 
 Please include:
 

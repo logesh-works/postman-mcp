@@ -1,4 +1,4 @@
-"""Framework code parsers — Path B fallback (PRD §9.4)."""
+"""Framework code parsers — Path B fallback."""
 
 from __future__ import annotations
 

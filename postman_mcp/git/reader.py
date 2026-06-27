@@ -1,7 +1,7 @@
-"""Resolve "what changed since X" by shelling to ``git`` (PRD §5, §B).
+"""Resolve "what changed since X" by shelling to ``git``.
 
-No ``gitpython`` dependency — the PRD explicitly allows shelling to git. Powers
-``syncchanges``: the zero-arg default diffs against ``lastUpdate.commit`` (PRD §10.1).
+No ``gitpython`` dependency — shells straight out to the ``git`` binary instead. Powers
+``syncchanges``: the zero-arg default diffs against ``lastUpdate.commit``.
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ def _git(args: list[str], project_root: Path | str) -> str:
 
 
 def current_commit(project_root: Path | str = ".") -> Optional[str]:
-    """Short SHA of HEAD, or None if not a git repo / no commits (PRD §7 marker)."""
+    """Short SHA of HEAD, or None if not a git repo / no commits."""
     try:
         return _git(["rev-parse", "--short", "HEAD"], project_root).strip() or None
     except GitError:
@@ -42,7 +42,7 @@ def current_commit(project_root: Path | str = ".") -> Optional[str]:
 
 
 def resolve_since(ref: str) -> str:
-    """Normalize a ``--since`` value (commit SHA or date) into a git revision (PRD §10.1)."""
+    """Normalize a ``--since`` value (commit SHA or date) into a git revision."""
     return ref.strip()
 
 
@@ -52,7 +52,7 @@ def changed_files(
     last: Optional[int] = None,
     since: Optional[str] = None,
 ) -> list[str]:
-    """Files changed for the given selector (PRD §10.1).
+    """Files changed for the given selector.
 
     - ``last=N``      → changes across the last N commits (no ``HEAD~N`` syntax for user).
     - ``since=<ref>`` → changes since a commit SHA or date.

@@ -201,11 +201,10 @@ vulnerabilities privately — see [SECURITY.md](SECURITY.md).
 
 ## License
 
-[MIT](LICENSE) © Logeshkumar (logeshkumar.in).
+[MIT](LICENSE) © Logesh Kumar (logeshkumar.in).
 
 ---
 
 <div align="center">
-<sub>Built to implement <code>postman-mcp-prd-v3.md</code> (v3.1). Code is the source of
-truth for what an API <em>is</em>; Postman for what <em>exists</em>.</sub>
+<sub>Code is the source of truth for what an API <em>is</em>; Postman for what <em>exists</em>.</sub>
 </div>

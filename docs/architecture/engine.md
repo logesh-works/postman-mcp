@@ -9,7 +9,7 @@ feeds it.
 
 Module: `engine/builder.py` (with `engine/examples.py` and `engine/tests.py`).
 
-## The pipeline (PRD §8)
+## The pipeline
 
 ```mermaid
 flowchart TD
@@ -59,7 +59,7 @@ This is what makes a synced request usable immediately — no manual fill.
    shipped **off by default**.
 
 Status and schema are the trusted tiers and ship first. Business-logic assertions are
-opt-in until the quality bar is proven (PRD §8.6, §22).
+opt-in until the quality bar is proven.
 
 ## Why the engine is isolated
 

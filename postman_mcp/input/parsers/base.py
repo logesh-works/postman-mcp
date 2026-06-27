@@ -1,4 +1,4 @@
-"""Shared helpers for code parsers (PRD §9.4)."""
+"""Shared helpers for code parsers."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ def iter_source_files(root: Path | str, suffixes: tuple[str, ...]) -> Iterator[P
             yield path
 
 
-# Map Python annotation / TS type names to coarse field types (PRD §8.3).
+# Map Python annotation / TS type names to coarse field types.
 _PY_TYPE_MAP = {
     "str": FieldType.STRING,
     "int": FieldType.INTEGER,

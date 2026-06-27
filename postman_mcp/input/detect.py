@@ -1,4 +1,4 @@
-"""Detect the project's framework and OpenAPI source (PRD §C.1 step 1, §9.2).
+"""Detect the project's framework and OpenAPI source.
 
 Used by ``init`` to seed ``config.framework`` / ``config.inputMode`` /
 ``config.openApiSource``, and re-used by the resolver at sync time.
@@ -11,10 +11,10 @@ from typing import Optional
 
 from pydantic import BaseModel
 
-# Frameworks supported in the MVP (PRD §4).
+# Frameworks supported in the MVP.
 FRAMEWORKS = ("fastapi", "express", "django", "nestjs")
 
-# Conventional committed spec filenames, in priority order (PRD §9.2 step 3).
+# Conventional committed spec filenames, in priority order.
 _SPEC_FILENAMES = (
     "openapi.json",
     "openapi.yaml",
@@ -23,7 +23,7 @@ _SPEC_FILENAMES = (
     "swagger.yaml",
 )
 
-# Well-known live spec endpoints by framework (PRD §9.2 step 2).
+# Well-known live spec endpoints by framework.
 LIVE_SPEC_ENDPOINTS = {
     "fastapi": "http://localhost:8000/openapi.json",
     "nestjs": "http://localhost:3000/api-json",
@@ -44,7 +44,7 @@ def _read(path: Path) -> str:
 
 
 def detect_framework(project_root: Path | str = ".") -> Optional[str]:
-    """Detect framework by signature files (PRD §C.1 step 1).
+    """Detect framework by signature files.
 
     FastAPI: ``main.py`` + a ``fastapi`` import · Express: ``package.json`` + express ·
     Django: ``manage.py`` · NestJS: ``@nestjs/core`` in ``package.json``.
@@ -80,7 +80,7 @@ def detect_openapi_source(
     project_root: Path | str = ".",
     framework: Optional[str] = None,
 ) -> Optional[str]:
-    """Find a committed spec file or known live endpoint (PRD §9.2 steps 2–3).
+    """Find a committed spec file or known live endpoint.
 
     Returns a path or URL, or ``None`` if no spec is discoverable statically. (Live
     endpoints are only *suggested* here; the resolver verifies reachability at §9.2.)
@@ -102,11 +102,11 @@ def detect_openapi_source(
 
 
 def detect_project(project_root: Path | str = ".") -> DetectedProject:
-    """Full detection: framework + input mode + openapi source (PRD §C.1 step 1)."""
+    """Full detection: framework + input mode + openapi source."""
     framework = detect_framework(project_root)
     source = detect_openapi_source(project_root, framework)
     # A committed spec file means openapi mode for sure; a suggested live endpoint is
-    # treated as openapi too but re-checked for freshness each sync (PRD §9.2).
+    # treated as openapi too but re-checked for freshness each sync.
     input_mode = "openapi" if source else "code"
     return DetectedProject(
         framework=framework, input_mode=input_mode, openapi_source=source

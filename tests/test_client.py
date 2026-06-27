@@ -1,4 +1,4 @@
-"""Postman REST client — auth, retry/backoff, and the API surface (PRD §6, §18)."""
+"""Postman REST client — auth, retry/backoff, and the API surface."""
 
 from __future__ import annotations
 

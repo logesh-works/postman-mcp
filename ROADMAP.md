@@ -2,7 +2,7 @@
 
 Postman MCP ships in deliberate milestones. The MVP proves the kernel — *point at one
 route, watch a complete Postman request materialize* — and each release widens coverage
-from there. Milestones map to the build phases in `postman-mcp-prd-v3.md` §19.
+from there.
 
 > Dates are targets, not promises. The ordering is firm.
 
@@ -31,7 +31,7 @@ editing.
 - [ ] Business-logic test tier behind a quality gate (opt-in)
 - [ ] Richer diff output (field-level `~` rendering parity across all commands)
 
-## 0.3.0 — CI and the test loop (PRD Phase 2)
+## 0.3.0 — CI and the test loop
 
 **Goal:** the collection stays in sync without a human in the loop.
 
@@ -45,10 +45,10 @@ editing.
 
 - [ ] Semantic-versioning guarantees and a documented deprecation policy
 - [ ] Complete documentation site with per-framework guides and screenshots
-- [ ] Validated success metrics (PRD §21): ≥80% of synced requests need zero manual edits
+- [ ] Validated success metrics: ≥80% of synced requests need zero manual edits
 - [ ] Stable plugin/parser interface for community-contributed frameworks
 
-## Beyond 1.0 (PRD Phase 3)
+## Beyond 1.0
 
 - [ ] Mock server generated from schema
 - [ ] Pre-commit OWASP security checks

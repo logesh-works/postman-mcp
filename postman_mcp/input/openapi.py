@@ -1,8 +1,8 @@
-"""Path A — map an OpenAPI 3.x document into route models (PRD §9.3).
+"""Path A — map an OpenAPI 3.x document into route models.
 
 This path needs no framework-specific code: one mapper covers every framework that emits
 a valid OpenAPI 3.x document (FastAPI, NestJS+swagger, DRF+spectacular). ``$ref``s are
-resolved against ``components.schemas`` with a small hand-rolled resolver (PRD §9.3).
+resolved against ``components.schemas`` with a small hand-rolled resolver.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ _METHODS = ("get", "post", "put", "patch", "delete", "head", "options")
 
 
 class OpenApiError(Exception):
-    """Spec could not be loaded/parsed — caller falls back to code parsing (§9.2)."""
+    """Spec could not be loaded/parsed — caller falls back to code parsing."""
 
 
 # --- loading ------------------------------------------------------------------------
@@ -62,7 +62,7 @@ def load_spec(source: str, *, timeout: float = 5.0) -> dict[str, Any]:
 
 
 def _resolve_ref(ref: str, spec: dict[str, Any]) -> dict[str, Any]:
-    """Resolve a local ``#/components/schemas/X`` ref (PRD §9.3)."""
+    """Resolve a local ``#/components/schemas/X`` ref."""
     if not ref.startswith("#/"):
         return {}
     node: Any = spec
@@ -95,7 +95,7 @@ def _schema_to_body(
     _depth: int = 0,
     _seen: Optional[set[str]] = None,
 ) -> BodyModel:
-    """Convert a JSON Schema object into a flat-ish BodyModel (PRD §9.3, §8 step 3)."""
+    """Convert a JSON Schema object into a flat-ish BodyModel."""
     seen = _seen or set()
     schema = _deref(schema, spec, seen)
     fields: list[BodyField] = []
@@ -161,7 +161,7 @@ def _schema_to_field(
 
 
 def routes_from_spec(spec: dict[str, Any]) -> list[RouteModel]:
-    """Map ``paths.{path}.{method}`` into normalized route models (PRD §9.3)."""
+    """Map ``paths.{path}.{method}`` into normalized route models."""
     routes: list[RouteModel] = []
     security_schemes = (spec.get("components") or {}).get("securitySchemes") or {}
     global_security = spec.get("security") or []
@@ -264,7 +264,7 @@ def _operation_to_route(
 
 
 def _pick_json_schema(content: dict[str, Any]) -> Optional[dict[str, Any]]:
-    """Prefer ``application/json``; fall back to the first content type (PRD §9.3)."""
+    """Prefer ``application/json``; fall back to the first content type."""
     if not content:
         return None
     if "application/json" in content:

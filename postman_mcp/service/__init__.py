@@ -1,4 +1,4 @@
-"""Service layer — all business logic; CLI and MCP handlers are thin adapters (PRD §B).
+"""Service layer — all business logic; CLI and MCP handlers are thin adapters.
 
-Safety rules (PRD §17) are enforced here so every entry path inherits them.
+Safety rules are enforced here so every entry path inherits them.
 """

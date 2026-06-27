@@ -1,4 +1,4 @@
-"""Whole-collection merge: match, idempotency, preservation, soft delete (PRD §11,§12,§15)."""
+"""Whole-collection merge: match, idempotency, preservation, soft delete."""
 
 from __future__ import annotations
 

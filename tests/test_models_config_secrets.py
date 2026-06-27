@@ -1,4 +1,4 @@
-"""Contracts, config round-trip, and secret handling (PRD §7, §15, §6.2, §16)."""
+"""Contracts, config round-trip, and secret handling."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from postman_mcp.secrets.manager import (
 )
 
 
-# --- path normalization / identity (PRD §15) ---------------------------------------
+# --- path normalization / identity ---------------------------------------
 
 @pytest.mark.parametrize(
     "path,expected",
@@ -45,7 +45,7 @@ def test_route_key_is_method_plus_normalized_path():
     assert a.key == b.key == "POST:/users/{param}"
 
 
-# --- config round-trip, secret-free (PRD §7) ---------------------------------------
+# --- config round-trip, secret-free ---------------------------------------
 
 def test_config_round_trip(tmp_path):
     cfg = PostmanMcpConfig()
@@ -68,7 +68,7 @@ def test_missing_config_raises(tmp_path):
 
 
 def test_config_never_contains_raw_key(tmp_path):
-    """The committable config must hold a reference, never the secret (PRD §6.2, §16)."""
+    """The committable config must hold a reference, never the secret."""
     cfg = PostmanMcpConfig()
     cfg.config.apiKeyRef = "keychain:postman-mcp"
     save_config(cfg, tmp_path)
@@ -80,7 +80,7 @@ def test_config_never_contains_raw_key(tmp_path):
     assert "PMAK-" not in raw
 
 
-# --- secret resolver: file + env (PRD §6.2) ----------------------------------------
+# --- secret resolver: file + env ----------------------------------------
 
 def test_store_and_resolve_via_file(tmp_path):
     store_api_key("file:.postman-mcp.secret", "PMAK-abc123", tmp_path)
@@ -106,7 +106,7 @@ def test_resolve_unknown_scheme_raises():
         resolve_api_key("smoke-signal:nope")
 
 
-# --- env-var masking (PRD §16) -----------------------------------------------------
+# --- env-var masking -----------------------------------------------------
 
 @pytest.mark.parametrize("name", ["API_KEY", "auth_token", "client_secret", "db_password"])
 def test_secret_names_are_masked(name):

@@ -1,4 +1,4 @@
-"""Input resolution — OpenAPI first, code parsing as fallback (PRD §9)."""
+"""Input resolution — OpenAPI first, code parsing as fallback."""
 
 from postman_mcp.input.detect import (
     DetectedProject,

@@ -1,8 +1,8 @@
-"""Register the MCP server with Claude Code (PRD §C.2a).
+"""Register the MCP server with Claude Code.
 
 ``init`` writes the project-scoped ``.mcp.json`` entry directly — deterministic, works
 whether or not the ``claude`` CLI is on PATH — and additionally calls ``claude mcp add``
-when the CLI is available. Also keeps ``.gitignore`` covering the secret file (§7).
+when the CLI is available. Also keeps ``.gitignore`` covering the secret file.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from postman_mcp.config.store import SECRET_FILENAME
 MCP_CONFIG_FILENAME = ".mcp.json"
 SERVER_NAME = "postman-mcp"
 
-# PRD §C.2a — the entry that launches the stdio server.
+# The entry that launches the stdio server.
 _SERVER_ENTRY: dict[str, Any] = {
     "command": "postman-mcp",
     "args": ["serve"],
@@ -43,7 +43,7 @@ def register_mcp_server(project_root: Path | str = ".") -> Path:
     servers[SERVER_NAME] = dict(_SERVER_ENTRY)
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
-    # Best-effort: also register via the Claude CLI if present (PRD §C.2a).
+    # Best-effort: also register via the Claude CLI if present.
     if shutil.which("claude"):
         try:  # pragma: no cover - depends on external CLI
             subprocess.run(
@@ -58,7 +58,7 @@ def register_mcp_server(project_root: Path | str = ".") -> Path:
 
 
 def is_server_registered(project_root: Path | str = ".") -> bool:
-    """Doctor check #4 — server present in ``.mcp.json`` (PRD §E)."""
+    """Doctor check #4 — server present in ``.mcp.json``."""
     path = _mcp_config_path(project_root)
     if not path.exists():
         return False
@@ -70,7 +70,7 @@ def is_server_registered(project_root: Path | str = ".") -> bool:
 
 
 def ensure_gitignore(project_root: Path | str = ".") -> None:
-    """Ensure ``.postman-mcp.secret`` is gitignored (PRD §7)."""
+    """Ensure ``.postman-mcp.secret`` is gitignored."""
     path = Path(project_root) / ".gitignore"
     line = SECRET_FILENAME
     existing = path.read_text(encoding="utf-8") if path.exists() else ""

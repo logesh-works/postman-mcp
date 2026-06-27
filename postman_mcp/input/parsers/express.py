@@ -1,7 +1,7 @@
-"""Express code parser (PRD §9.4) — the most important fallback (no native spec).
+"""Express code parser — the most important fallback (no native spec).
 
 Express has no native type system, so body inference is best-effort and every route is
-flagged **lower confidence** in the diff when no body type is found (PRD §9.4, §18).
+flagged **lower confidence** in the diff when no body type is found.
 Regex/heuristic over ``.js`` / ``.ts`` files: ``app.get('/path', ...)`` /
 ``router.post('/path', requireAuth, handler)``.
 """
@@ -64,7 +64,7 @@ def _build_route(
         from postman_mcp.models import BodyField
 
         fields = [BodyField(name=n, required=False) for n in body_fields]
-        # No native types → lower confidence regardless (PRD §9.4).
+        # No native types → lower confidence regardless.
         body = BodyModel(name="RequestBody", fields=fields, low_confidence=True)
 
     success = 201 if method == "POST" else 200
@@ -81,7 +81,7 @@ def _build_route(
 
 
 def _body_field_names(text: str) -> list[str]:
-    """Best-effort body fields from ``req.body.X`` usages (PRD §9.4)."""
+    """Best-effort body fields from ``req.body.X`` usages."""
     seen: list[str] = []
     for name in _BODY_FIELD.findall(text):
         if name not in seen:

@@ -1,4 +1,4 @@
-"""End-to-end sync orchestration — the two-phase confirm contract (PRD §13, §17).
+"""End-to-end sync orchestration — the two-phase confirm contract.
 
 These are the safety-critical tests: the preview phase must never write, and a write must
 only happen on confirm. The Postman REST API is mocked with respx; no network is touched.
@@ -63,7 +63,7 @@ def _mock_get_collection():
 
 @respx.mock
 def test_preview_does_not_write(project):
-    """confirm=False → returns the diff, and NO PUT is issued (PRD §13, §17)."""
+    """confirm=False → returns the diff, and NO PUT is issued."""
     _mock_get_collection()
     put = respx.put(f"{BASE_URL}/collections/{COLLECTION_UID}").mock(
         return_value=httpx.Response(200, json={})
@@ -81,7 +81,7 @@ def test_preview_does_not_write(project):
 
 @respx.mock
 def test_confirm_writes_via_put(project):
-    """confirm=True → a single PUT performs the write (PRD §12)."""
+    """confirm=True → a single PUT performs the write."""
     _mock_get_collection()
     put = respx.put(f"{BASE_URL}/collections/{COLLECTION_UID}").mock(
         return_value=httpx.Response(200, json={"collection": {}})

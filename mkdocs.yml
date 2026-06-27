@@ -4,12 +4,7 @@ site_url: https://logesh-works.github.io/postman-mcp/
 repo_url: https://github.com/logesh-works/postman-mcp
 repo_name: logesh-works/postman-mcp
 edit_uri: edit/main/docs/
-copyright: Copyright &copy; 2026 Logeshkumar (logeshkumar.in)
-
-# Design docs kept in the repo but intentionally outside the published nav.
-not_in_nav: |
-  /implementation-plan.md
-  /prd-checklist.md
+copyright: Copyright &copy; 2026 Logesh Kumar (logeshkumar.in)
 
 validation:
   nav:

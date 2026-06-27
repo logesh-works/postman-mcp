@@ -1,13 +1,13 @@
-"""The stdio MCP server — one tool per slash command (PRD §5, §10).
+"""The stdio MCP server — one tool per slash command.
 
 Booted by ``postman-mcp serve`` (registered in Claude Code by ``init``). Reads
-``postman-mcp.json`` from the launch CWD to know the target collection (PRD §C.2a).
+``postman-mcp.json`` from the launch CWD to know the target collection.
 
 These handlers are thin adapters: they parse MCP args and call the service layer, which
-holds all business logic and enforces the safety rules (PRD §17). Every write-capable
+holds all business logic and enforces the safety rules. Every write-capable
 tool follows the two-phase ``confirm`` contract — with ``confirm=False`` (default) it
 returns the diff preview and writes nothing; only ``confirm=True`` performs the write
-(PRD §13, §17).
+.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ def syncapi(
 ) -> str:
     """Sync ONE API (the kernel). target = function name | "METHOD /route" | code.
 
-    With confirm=False returns the diff preview; with confirm=True writes (PRD §10.1).
+    With confirm=False returns the diff preview; with confirm=True writes.
     """
     from postman_mcp.service.sync import sync_api
 
@@ -44,7 +44,7 @@ def syncchanges(
     confirm: bool = False,
     confirm_collection: bool = False,
 ) -> str:
-    """Sync what changed since the last sync (PRD §10.1). Diff first, write on confirm."""
+    """Sync what changed since the last sync. Diff first, write on confirm."""
     from postman_mcp.service.sync import sync_changes
 
     return sync_changes(
@@ -59,7 +59,7 @@ def sync(
     confirm: bool = False,
     confirm_collection: bool = False,
 ) -> str:
-    """Sync every API in one file / module / directory (PRD §10.1)."""
+    """Sync every API in one file / module / directory."""
     from postman_mcp.service.sync import sync_target
 
     return sync_target(
@@ -73,7 +73,7 @@ def syncall(
     confirm: bool = False,
     confirm_collection: bool = False,
 ) -> str:
-    """Sync the whole codebase (PRD §10.1). Diff first, write on confirm."""
+    """Sync the whole codebase. Diff first, write on confirm."""
     from postman_mcp.service.sync import sync_all
 
     return sync_all(into=into, confirm=confirm, confirm_collection=confirm_collection)
@@ -81,7 +81,7 @@ def syncall(
 
 @mcp.tool()
 def createenv(name: Optional[str] = None, confirm: bool = False) -> str:
-    """Generate a Postman environment from code (PRD §10.1, §16)."""
+    """Generate a Postman environment from code."""
     from postman_mcp.service.environment import create_env
 
     return create_env(name=name, confirm=confirm)
@@ -89,7 +89,7 @@ def createenv(name: Optional[str] = None, confirm: bool = False) -> str:
 
 @mcp.tool()
 def status(since: Optional[str] = None) -> str:
-    """Read-only drift check — what WOULD sync, no writes (PRD §10.2)."""
+    """Read-only drift check — what WOULD sync, no writes."""
     from postman_mcp.service.status import status_report
 
     return status_report(since=since)

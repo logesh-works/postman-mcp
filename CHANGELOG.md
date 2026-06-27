@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] — Unreleased (MVP)
 
-First MVP implementing `postman-mcp-prd-v3.md` (v3.1).
+First MVP release.
 
 ### Added
 - **Setup chain** — `postman-mcp init` (API-key handshake, workspace/collection pick,

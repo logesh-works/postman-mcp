@@ -34,8 +34,8 @@ network calls are made.
 ## Conventions
 
 - **Small, single-responsibility modules.** The hard work is isolated in the engine.
-- **Cite the PRD.** Comments reference the relevant section (e.g. `# PRD §9.3`) so design
-  intent stays traceable to `postman-mcp-prd-v3.md`.
+- **Explain the why, not the what.** Comments should capture non-obvious intent or
+  constraints — the code already says what it does.
 - **Add a test for every behavior change.** Bug fixes get a regression test.
 - **Update the docs** in `docs/` when you change a command, flag, or config field, and add
   a `CHANGELOG.md` entry under `## [Unreleased]`.

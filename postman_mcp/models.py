@@ -1,8 +1,8 @@
 """Core Pydantic contracts shared across every layer.
 
 The most important contract is :class:`RouteModel` — the *normalized route model* that
-both input paths (OpenAPI §9.3 and code parsing §9.4) emit, so the engine (§8) and
-everything downstream is identical regardless of source (PRD §9.1).
+both input paths (OpenAPI and code parsing) emit, so the engine and
+everything downstream is identical regardless of source.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ HTTP_METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS")
 
 
 class InputSource(str, Enum):
-    """Where a route model came from — surfaced in the diff as a label (PRD §9.5, §13)."""
+    """Where a route model came from — surfaced in the diff as a label."""
 
     OPENAPI = "openapi"
     CODE = "code"
@@ -29,7 +29,7 @@ class ParamLocation(str, Enum):
 
 
 class FieldType(str, Enum):
-    """Coarse field types used by the example generator (PRD §8.3)."""
+    """Coarse field types used by the example generator."""
 
     STRING = "string"
     INTEGER = "integer"
@@ -41,7 +41,7 @@ class FieldType(str, Enum):
 
 
 class Param(BaseModel):
-    """A path / query / header parameter (PRD §8 step 2)."""
+    """A path / query / header parameter."""
 
     name: str
     location: ParamLocation
@@ -51,7 +51,7 @@ class Param(BaseModel):
 
 
 class BodyField(BaseModel):
-    """One field of a request/response body shape (PRD §8 step 3/5)."""
+    """One field of a request/response body shape."""
 
     name: str
     type: FieldType = FieldType.UNKNOWN
@@ -63,17 +63,17 @@ class BodyField(BaseModel):
 
 
 class BodyModel(BaseModel):
-    """A typed request or response body (PRD §8 step 3/5)."""
+    """A typed request or response body."""
 
     name: Optional[str] = None
     fields: list[BodyField] = Field(default_factory=list)
     # True when the source could not produce a real type (Express, untyped) — the diff
-    # flags these "lower confidence" (PRD §9.4, §18).
+    # flags these "lower confidence".
     low_confidence: bool = False
 
 
 class ResponseModel(BaseModel):
-    """One declared response, keyed by status code (PRD §8 step 5)."""
+    """One declared response, keyed by status code."""
 
     status: int
     description: Optional[str] = None
@@ -81,7 +81,7 @@ class ResponseModel(BaseModel):
 
 
 class RouteModel(BaseModel):
-    """The normalized route model — the single contract feeding the engine (PRD §9.1).
+    """The normalized route model — the single contract feeding the engine.
 
     ``{ method, path, pathParams, queryParams, headers, bodyType,
         responseTypes, authRequired, docstring, codeRef }``
@@ -101,11 +101,11 @@ class RouteModel(BaseModel):
 
     @property
     def key(self) -> str:
-        """Identity used to match against the live collection (PRD §15)."""
+        """Identity used to match against the live collection."""
         return f"{self.method.upper()}:{normalize_path(self.path)}"
 
 
-# --- path normalization (PRD §15) ---------------------------------------------------
+# --- path normalization ---------------------------------------------------
 
 import re
 
@@ -117,12 +117,12 @@ _ANGLE = re.compile(r"<(?:[^:>]+:)?([^>]+)>")
 def normalize_path(path: str) -> str:
     """Normalize ``/users/:id`` ≡ ``/users/{id}`` ≡ ``/users/<id>`` → ``/users/{id}``.
 
-    A route is keyed by ``METHOD + normalized path`` (PRD §15).
+    A route is keyed by ``METHOD + normalized path``.
     """
     p = path.strip()
     if not p.startswith("/"):
         p = "/" + p
-    # angle first: ``<int:id>`` carries a colon the :param rule must not match (PRD §15)
+    # angle first: ``<int:id>`` carries a colon the :param rule must not match
     p = _ANGLE.sub(lambda m: "{" + m.group(1) + "}", p)
     p = _COLON.sub(lambda m: "{" + m.group(1) + "}", p)
     # collapse any {anything} placeholder to {param} so differing names still match
@@ -132,18 +132,18 @@ def normalize_path(path: str) -> str:
     return p
 
 
-# --- diff contracts (PRD §13) -------------------------------------------------------
+# --- diff contracts -------------------------------------------------------
 
 
 class ChangeType(str, Enum):
     NEW = "new"
     MODIFIED = "modified"
-    DEPRECATED = "deprecated"  # soft delete (PRD §15, §17)
+    DEPRECATED = "deprecated"  # soft delete
     UNCHANGED = "unchanged"
 
 
 class RequestDiff(BaseModel):
-    """A single request's planned change, rendered in the diff preview (PRD §13)."""
+    """A single request's planned change, rendered in the diff preview."""
 
     change: ChangeType
     method: str
@@ -151,18 +151,18 @@ class RequestDiff(BaseModel):
     into: str
     source: InputSource
     lines: list[str] = Field(default_factory=list)  # rendered "+ Body ..." lines
-    preserved: list[str] = Field(default_factory=list)  # human-owned fields kept (§15)
+    preserved: list[str] = Field(default_factory=list)  # human-owned fields kept
     low_confidence: bool = False
 
 
 class SyncPlan(BaseModel):
-    """The full plan for a sync operation — the diff is rendered from this (PRD §13)."""
+    """The full plan for a sync operation — the diff is rendered from this."""
 
     collection_id: str
     collection_name: Optional[str] = None
     is_default_collection: bool = True
     diffs: list[RequestDiff] = Field(default_factory=list)
-    skipped: list[str] = Field(default_factory=list)  # parse failures (§18)
+    skipped: list[str] = Field(default_factory=list)  # parse failures
 
     @property
     def has_changes(self) -> bool:

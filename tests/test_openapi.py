@@ -1,4 +1,4 @@
-"""Path A — OpenAPI 3.x → route models (PRD §9.3)."""
+"""Path A — OpenAPI 3.x → route models."""
 
 from __future__ import annotations
 
@@ -52,7 +52,7 @@ def test_summary_becomes_docstring(openapi_spec):
     assert post.docstring == "Create a payment"
 
 
-# --- loading (PRD §9.2) ------------------------------------------------------------
+# --- loading ------------------------------------------------------------
 
 def test_load_spec_from_json_file(tmp_path, openapi_spec):
     p = tmp_path / "openapi.json"

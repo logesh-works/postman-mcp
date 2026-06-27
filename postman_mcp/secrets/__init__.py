@@ -1,4 +1,4 @@
-"""Secret resolver — reads the Postman API key from its reference (PRD §6.2, §16)."""
+"""Secret resolver — reads the Postman API key from its reference."""
 
 from postman_mcp.secrets.manager import (
     KEYRING_SERVICE,

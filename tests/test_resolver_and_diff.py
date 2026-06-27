@@ -1,4 +1,4 @@
-"""Input resolver (per-route mixing, target matching) + diff rendering (PRD §9.5, §13)."""
+"""Input resolver (per-route mixing, target matching) + diff rendering."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from postman_mcp.models import (
 )
 
 
-# --- resolver: per-route mixing (PRD §9.5) -----------------------------------------
+# --- resolver: per-route mixing -----------------------------------------
 
 def test_resolve_openapi_then_code_fills_gaps(tmp_path, openapi_spec):
     # Spec covers POST /payments and GET /payments/{id}.
@@ -49,7 +49,7 @@ def test_resolve_unreachable_spec_falls_back_with_note(tmp_path):
     assert any("falling back to code parsing" in n for n in result.notes)
 
 
-# --- target matching (PRD §10.1, §12) ----------------------------------------------
+# --- target matching ----------------------------------------------
 
 def _routes():
     return [
@@ -73,7 +73,7 @@ def test_match_target_by_path_fragment():
     assert len(matches) == 2  # ambiguous → caller asks the user
 
 
-# --- diff rendering (PRD §13) ------------------------------------------------------
+# --- diff rendering ------------------------------------------------------
 
 def _new_diff(**kw):
     base = dict(

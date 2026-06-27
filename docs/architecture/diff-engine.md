@@ -44,7 +44,7 @@ Each request is tagged with where its model came from:
 - **`[code]`** — derived from code parsing. Lower confidence, especially for untyped
   bodies (e.g. Express). Worth a closer look.
 
-This makes [per-route mixing](resolver.md#per-route-mixing-prd-95) visible: in one diff
+This makes [per-route mixing](resolver.md#per-route-mixing) visible: in one diff
 you might see most routes `[openapi]` and a manually mounted one `[code]`.
 
 ## The two-phase contract

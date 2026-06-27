@@ -1,4 +1,4 @@
-"""Setup: slash-command install + MCP registration + gitignore (PRD §C.2, §E)."""
+"""Setup: slash-command install + MCP registration + gitignore."""
 
 from __future__ import annotations
 

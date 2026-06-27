@@ -1,8 +1,8 @@
-"""Sync orchestration — the five selectors over one engine (PRD §2, §10.1, §12).
+"""Sync orchestration — the five selectors over one engine.
 
 Every write-capable entry follows the two-phase ``confirm`` contract: with
 ``confirm=False`` it returns the rendered diff and writes nothing; with ``confirm=True``
-it re-runs and performs the merge + ``PUT`` (PRD §13, §17). All four selectors funnel
+it re-runs and performs the merge + ``PUT``. All four selectors funnel
 through :func:`_run_sync`, which holds the safety rails.
 """
 
@@ -33,7 +33,7 @@ def sync_api(
     confirm_collection: bool = False,
     project_root: Path | str = ".",
 ) -> str:
-    """Sync ONE API — the kernel (PRD §10.1, §12)."""
+    """Sync ONE API — the kernel."""
     try:
         ctx = load_context(project_root)
     except (ConfigError, PostmanAuthError, PostmanError) as exc:
@@ -47,7 +47,7 @@ def sync_api(
             "Try a function name, \"METHOD /route\", or a path fragment."
         )
     if len(matches) > 1:
-        # Ambiguous — list candidates, never guess (PRD §18).
+        # Ambiguous — list candidates, never guess.
         listed = "\n".join(f"  - {r.method} {r.path}" for r in matches)
         return (
             f"{target!r} is ambiguous — matched {len(matches)} routes:\n{listed}\n"
@@ -66,7 +66,7 @@ def sync_all(
     confirm_collection: bool = False,
     project_root: Path | str = ".",
 ) -> str:
-    """Sync the whole codebase (PRD §10.1)."""
+    """Sync the whole codebase."""
     try:
         ctx = load_context(project_root)
     except (ConfigError, PostmanAuthError, PostmanError) as exc:
@@ -89,7 +89,7 @@ def sync_target(
     confirm_collection: bool = False,
     project_root: Path | str = ".",
 ) -> str:
-    """Sync every API in one file / module / directory (PRD §10.1)."""
+    """Sync every API in one file / module / directory."""
     try:
         ctx = load_context(project_root)
     except (ConfigError, PostmanAuthError, PostmanError) as exc:
@@ -115,7 +115,7 @@ def sync_changes(
     confirm_collection: bool = False,
     project_root: Path | str = ".",
 ) -> str:
-    """Sync what changed since the last sync (PRD §10.1). Daily driver."""
+    """Sync what changed since the last sync. Daily driver."""
     try:
         ctx = load_context(project_root)
     except (ConfigError, PostmanAuthError, PostmanError) as exc:
@@ -127,7 +127,7 @@ def sync_changes(
     if anchor is None and last is None:
         anchor = ctx.config.lastUpdate.commit
         if not anchor:
-            # First run with no marker → error gently, suggest syncall (PRD §18).
+            # First run with no marker → error gently, suggest syncall.
             return (
                 "No last-sync marker yet. Run /postman:syncall for the first full "
                 "sync, then /postman:syncchanges will track changes from there."
@@ -194,7 +194,7 @@ def _run_sync(
         skipped=skipped or [],
     )
 
-    # --- preview phase: diff only, no write (PRD §13, §17) ---
+    # --- preview phase: diff only, no write ---
     if not confirm:
         ctx.client.close()
         preview = render_plan(plan)
@@ -203,12 +203,12 @@ def _run_sync(
         return preview
 
     # --- write phase ---
-    # Non-default collection guard (PRD §11, §17). Vacuous in MVP (always default).
+    # Non-default collection guard. Vacuous in MVP (always default).
     if not plan.is_default_collection and not confirm_collection:
         ctx.client.close()
         return (
             "Refusing to write to a non-default collection without --confirm "
-            "(PRD §11, §17)."
+            "."
         )
     if not plan.has_changes:
         ctx.client.close()
@@ -231,7 +231,7 @@ def _run_sync(
     finally:
         pass
 
-    # Record lastUpdate (PRD §12 step 8).
+    # Record lastUpdate.
     _record_sync(ctx)
     ctx.client.close()
     return f"✓ Wrote to Postman: {new} new · {mod} updated request(s)."
@@ -249,7 +249,7 @@ def _record_sync(ctx: SyncContext) -> None:
 
 
 def _filter_by_file(routes: list[RouteModel], target: str) -> list[RouteModel]:
-    """Filter routes whose code_ref/path matches a file/module/dir (PRD §10.1)."""
+    """Filter routes whose code_ref/path matches a file/module/dir."""
     needle = target.strip().lstrip("-").strip().lower()
     out: list[RouteModel] = []
     for r in routes:
@@ -262,7 +262,7 @@ def _filter_by_file(routes: list[RouteModel], target: str) -> list[RouteModel]:
 def _filter_by_changed_files(
     routes: list[RouteModel], files: list[str]
 ) -> list[RouteModel]:
-    """Keep routes whose source file is among the changed files (PRD §10.1)."""
+    """Keep routes whose source file is among the changed files."""
     changed = {Path(f).as_posix().lower() for f in files}
     out: list[RouteModel] = []
     for r in routes:

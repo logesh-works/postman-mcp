@@ -1,4 +1,4 @@
-"""CLI terminal commands — version + the doctor setup-contract check (PRD §E)."""
+"""CLI terminal commands — version + the doctor setup-contract check."""
 
 from __future__ import annotations
 

@@ -54,7 +54,7 @@ item. The input resolver (`input/resolver.py`) produces that `RouteModel` from t
 available source — an OpenAPI spec when one exists, framework code parsing otherwise.
 The service layer (`service/`) orchestrates read → diff → confirm → write against the
 Postman client (`postman/`). See [docs/architecture/overview.md](docs/architecture/overview.md)
-for the full picture, and `docs/implementation-plan.md` for the design rationale.
+for the full picture.
 
 ## Pull request guidelines
 
@@ -64,7 +64,7 @@ for the full picture, and `docs/implementation-plan.md` for the design rationale
 4. **Update docs** when you change a command, flag, or config field.
 5. **Update [CHANGELOG.md](CHANGELOG.md)** under the `## [Unreleased]` heading.
 6. **Match the surrounding style** — the code favors small, single-responsibility modules
-   and comments that cite the relevant PRD section (e.g. `# PRD §9.3`).
+   and comments that explain the *why*, not the *what*.
 7. Fill out the PR template; link the issue your PR closes.
 
 A maintainer will review. CI must be green before merge.

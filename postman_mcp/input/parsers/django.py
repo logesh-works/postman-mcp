@@ -1,9 +1,9 @@
-"""Django REST Framework parser (PRD §9.4) — AST over the project.
+"""Django REST Framework parser — AST over the project.
 
 Routes from ``urls.py`` ``path(...)`` patterns associated with views; body/response from
 DRF serializers; auth from ``permission_classes`` (``IsAuthenticated``). Best-effort:
 Django routing is dynamic, so this covers the common ``path('x/', View.as_view())`` and
-``ViewSet`` shapes (PRD §9.4).
+``ViewSet`` shapes.
 """
 
 from __future__ import annotations

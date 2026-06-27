@@ -1,4 +1,4 @@
-"""Git reader — "what changed since X" for syncchanges (PRD §5, §10.1)."""
+"""Git reader — "what changed since X" for syncchanges."""
 
 from postman_mcp.git.reader import (
     GitError,

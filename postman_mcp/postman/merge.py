@@ -1,10 +1,10 @@
-"""Whole-collection merge: read → match → merge → (caller PUTs) — PRD §6.4, §11, §15.
+"""Whole-collection merge: read → match → merge → (caller PUTs).
 
 Identity is ``METHOD + normalized path`` matched against the *live* collection, never a
-local registry (PRD §15). Conflict rule: **code wins on structure, human wins on craft**
+local registry. Conflict rule: **code wins on structure, human wins on craft**
 — on update we overwrite structural request fields (method/url/headers/body/auth) but
 read back and preserve human-owned test scripts (``event``), saved-response examples, and
-edited descriptions (PRD §12, §15). Deletes are soft by default (PRD §15, §17).
+edited descriptions. Deletes are soft by default.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ _BASE_URL_PREFIX = "{{base_url}}"
 
 
 def _item_path(item: dict[str, Any]) -> Optional[str]:
-    """Extract the route path from a Postman request item's url (PRD §6.4)."""
+    """Extract the route path from a Postman request item's url."""
     request = item.get("request")
     if not isinstance(request, dict):
         return None
@@ -72,7 +72,7 @@ def _iter_request_items(items: list[dict[str, Any]]):
 def find_item(
     collection: dict[str, Any], key: str
 ) -> Optional[tuple[list[dict[str, Any]], int, dict[str, Any]]]:
-    """Find a request item by its METHOD+path key anywhere in the collection (PRD §15)."""
+    """Find a request item by its METHOD+path key anywhere in the collection."""
     items = collection.get("item", [])
     for parent, idx, item in _iter_request_items(items):
         if item_key(item) == key:
@@ -81,7 +81,7 @@ def find_item(
 
 
 def ensure_folder(collection: dict[str, Any], into: str) -> list[dict[str, Any]]:
-    """Resolve/create the ``--into`` folder path; return its item list (PRD §11)."""
+    """Resolve/create the ``--into`` folder path; return its item list."""
     items = collection.setdefault("item", [])
     into = (into or "/").strip("/")
     if not into:
@@ -112,7 +112,7 @@ def compute_diff(
     route: RouteModel,
     into: str,
 ) -> RequestDiff:
-    """Compute the planned change for one route without mutating (PRD §13)."""
+    """Compute the planned change for one route without mutating."""
     existing = find_item(collection, route.key)
     low_conf = bool(route.body and route.body.low_confidence)
     if existing is None:
@@ -141,7 +141,7 @@ def compute_diff(
 
 
 def _preserved_fields(current: dict[str, Any]) -> list[str]:
-    """List human-owned fields that will survive the update (PRD §12, §15)."""
+    """List human-owned fields that will survive the update."""
     preserved: list[str] = []
     if current.get("event"):
         preserved.append("test scripts")
@@ -191,7 +191,7 @@ def apply_route(
     route: RouteModel,
     into: str,
 ) -> ChangeType:
-    """Merge one route into the collection in place; return what happened (PRD §11,§15)."""
+    """Merge one route into the collection in place; return what happened."""
     existing = find_item(collection, route.key)
     if existing is None:
         folder_items = ensure_folder(collection, into)
@@ -205,7 +205,7 @@ def apply_route(
 
 
 def _merge_item(current: dict[str, Any], built: dict[str, Any]) -> dict[str, Any]:
-    """Overwrite structural request fields; preserve human craft (PRD §12, §15)."""
+    """Overwrite structural request fields; preserve human craft."""
     merged = dict(current)
     cur_req = dict(current.get("request") or {})
     new_req = dict(built["request"])
@@ -223,7 +223,7 @@ def _merge_item(current: dict[str, Any], built: dict[str, Any]) -> dict[str, Any
         cur_req["description"] = new_req.get("description", "")
 
     merged["request"] = cur_req
-    # Preserve human-owned scripts + saved examples (PRD §15); add only if absent.
+    # Preserve human-owned scripts + saved examples; add only if absent.
     if not merged.get("event"):
         merged["event"] = built.get("event", [])
     if not merged.get("response"):
@@ -232,13 +232,13 @@ def _merge_item(current: dict[str, Any], built: dict[str, Any]) -> dict[str, Any
     return merged
 
 
-# --- soft delete (PRD §15, §17) -----------------------------------------------------
+# --- soft delete -----------------------------------------------------
 
 _DEPRECATED_PREFIX = "[DEPRECATED] "
 
 
 def soft_deprecate(collection: dict[str, Any], key: str) -> bool:
-    """Mark a removed route deprecated without deleting it (PRD §15, §17)."""
+    """Mark a removed route deprecated without deleting it."""
     found = find_item(collection, key)
     if found is None:
         return False
@@ -255,7 +255,7 @@ def soft_deprecate(collection: dict[str, Any], key: str) -> bool:
 
 
 def purge(collection: dict[str, Any], key: str) -> bool:
-    """Hard-delete a request item (only when ``--purge`` is given; PRD §17)."""
+    """Hard-delete a request item (only when ``--purge`` is given)."""
     found = find_item(collection, key)
     if found is None:
         return False

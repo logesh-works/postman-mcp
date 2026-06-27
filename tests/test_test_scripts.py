@@ -1,4 +1,4 @@
-"""Three-tier test-script generation (PRD §8 step 6, §8.6, §14)."""
+"""Three-tier test-script generation."""
 
 from __future__ import annotations
 

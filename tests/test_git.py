@@ -1,4 +1,4 @@
-"""Git reader — 'what changed since X' (PRD §5, §10.1)."""
+"""Git reader — 'what changed since X'."""
 
 from __future__ import annotations
 

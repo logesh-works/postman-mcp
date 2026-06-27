@@ -1,4 +1,4 @@
-"""status (read-only drift) + createenv (environment generation) — PRD §10.2, §10.1, §16."""
+"""status (read-only drift) + createenv (environment generation)."""
 
 from __future__ import annotations
 
