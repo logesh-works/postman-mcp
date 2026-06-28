@@ -1,7 +1,8 @@
 """FastAPI code parser — used when no OpenAPI spec is available.
 
 Extracts routes from ``@app.post("/path")`` / ``@router.get(...)`` decorators, body and
-response shapes from Pydantic models, and auth from ``Depends(get_current_user)``.
+response shapes from Pydantic models, auth from ``Depends(get_current_user)``, and
+declared headers from ``Header(...)`` defaults (required iff the default is ``...``).
 
 Pydantic v1 vs v2: model fields are read **statically from the AST** (both versions use
 ``name: type`` annotations), so this parser is version-agnostic and needs no import of
@@ -17,9 +18,9 @@ from pathlib import Path
 from typing import Optional
 
 from postman_mcp.input.parsers.base import (
-    iter_source_files,
     py_field_type,
     read_text,
+    source_files,
 )
 from postman_mcp.models import (
     BodyField,
@@ -36,15 +37,21 @@ _PATH_PARAM = re.compile(r"\{([^}:]+)(?::[^}]+)?\}")
 _AUTH_HINTS = ("get_current_user", "current_user", "require_auth", "auth", "verify_token")
 
 
-def parse(project_root: Path | str) -> tuple[list[RouteModel], list[str]]:
-    """Parse a FastAPI project into route models."""
+def parse(
+    project_root: Path | str, *, only_files: Optional[list[str]] = None
+) -> tuple[list[RouteModel], list[str]]:
+    """Parse a FastAPI project into route models.
+
+    ``only_files``, when given, restricts the scan to those files (incremental syncs)
+    instead of walking the whole project.
+    """
     root = Path(project_root)
     models: dict[str, BodyModel] = {}
     files: list[tuple[Path, ast.Module]] = []
     skipped: list[str] = []
 
     # Pass 1: collect Pydantic models + parse all files once.
-    for path in iter_source_files(root, (".py",)):
+    for path in source_files(root, (".py",), only_files):
         try:
             tree = ast.parse(read_text(path))
         except SyntaxError as exc:
@@ -103,6 +110,7 @@ def _route_from_function(
 
         path_params: list[Param] = []
         query_params: list[Param] = []
+        headers: list[Param] = []
         body: Optional[BodyModel] = None
         auth = False
 
@@ -110,6 +118,16 @@ def _route_from_function(
             ann = _annotation_name(arg.annotation) if arg.annotation else ""
             if _is_auth_default(default):
                 auth = True
+                continue
+            if _is_header_default(default):
+                headers.append(
+                    Param(
+                        name=_header_name(arg.arg),
+                        location=ParamLocation.HEADER,
+                        type=py_field_type(ann),
+                        required=_header_is_required(default),
+                    )
+                )
                 continue
             if arg.arg in path_param_names:
                 path_params.append(
@@ -146,6 +164,7 @@ def _route_from_function(
             path=path,
             path_params=path_params,
             query_params=query_params,
+            headers=headers,
             body=body,
             responses=responses,
             auth_required=auth,
@@ -200,6 +219,25 @@ def _is_auth_default(default: Optional[ast.expr]) -> bool:
             inner = _annotation_name(default.args[0]) if default.args else ""
             return any(h in inner.lower() for h in _AUTH_HINTS)
     return False
+
+
+def _is_header_default(default: Optional[ast.expr]) -> bool:
+    return isinstance(default, ast.Call) and _annotation_name(default.func) == "Header"
+
+
+def _header_is_required(default: ast.Call) -> bool:
+    """``Header(...)`` (Ellipsis) is required; any concrete default value is not."""
+    if default.args and isinstance(default.args[0], ast.Constant):
+        return default.args[0].value is Ellipsis
+    for kw in default.keywords:
+        if kw.arg == "default":
+            return isinstance(kw.value, ast.Constant) and kw.value.value is Ellipsis
+    return not default.args and not default.keywords
+
+
+def _header_name(arg_name: str) -> str:
+    """FastAPI's default conversion: ``x_api_key`` -> ``X-Api-Key``."""
+    return "-".join(part.capitalize() for part in arg_name.split("_"))
 
 
 def _annotation_name(node: Optional[ast.expr]) -> str:

@@ -33,6 +33,32 @@ def test_install_is_idempotent(tmp_path):
     assert slash_commands_present(tmp_path) is True
 
 
+# --- command template contract (root placement + clean stop) -----------------------
+
+_INTO_OMISSION_COMMANDS = ("syncapi", "syncall", "sync")
+_STOP_AFTER_WRITE_COMMANDS = ("syncapi", "syncall", "sync", "syncchanges", "createenv")
+
+
+def _installed_template(tmp_path, name: str) -> str:
+    install_slash_commands(tmp_path)
+    path = tmp_path / ".claude" / "commands" / "postman" / f"{name}.md"
+    return " ".join(path.read_text(encoding="utf-8").split())
+
+
+def test_into_omission_commands_forbid_folder_inference(tmp_path):
+    for name in _INTO_OMISSION_COMMANDS:
+        text = _installed_template(tmp_path, name)
+        assert "do not infer a folder" in text, f"{name}.md missing root-placement contract"
+        assert "collection root by default" in text, f"{name}.md missing root-placement contract"
+
+
+def test_write_commands_stop_after_showing_result(tmp_path):
+    for name in _STOP_AFTER_WRITE_COMMANDS:
+        text = _installed_template(tmp_path, name).lower()
+        assert "after showing the tool's result" in text, f"{name}.md missing clean-stop contract"
+        assert "end the turn" in text, f"{name}.md missing clean-stop contract"
+
+
 def test_register_mcp_server_writes_entry(tmp_path):
     assert is_server_registered(tmp_path) is False
     path = register_mcp_server(tmp_path)

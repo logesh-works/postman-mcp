@@ -62,7 +62,7 @@ def test_status_reports_new_route_without_writing(project):
     )
     out = status_report(project_root=project)
     assert "read-only" in out
-    assert "POST /payments" in out
+    assert "| POST | /payments |" in out
     assert not put.called
 
 

@@ -51,7 +51,10 @@ def _load_openapi_routes(
 
 
 def resolve_routes(
-    config: ProjectConfig, project_root: Path | str = "."
+    config: ProjectConfig,
+    project_root: Path | str = ".",
+    *,
+    only_files: Optional[list[str]] = None,
 ) -> ResolutionResult:
     """Resolve every route from the best available source, with per-route mixing.
 
@@ -59,6 +62,9 @@ def resolve_routes(
     1. If inputMode is openapi (or a spec is discoverable), load the spec.
     2. Parse code for the framework.
     3. Merge: spec routes win; code routes fill any METHOD+path the spec missed.
+
+    ``only_files`` narrows the *code* scan to a fixed set of files (incremental syncs),
+    so the parser doesn't walk the whole project just to discard most of it afterward.
     """
     notes: list[str] = []
     skipped: list[str] = []
@@ -69,10 +75,11 @@ def resolve_routes(
         notes.extend(oa_notes)
 
     # Code parsing fallback (wired per framework in Step E). Returns [] until then.
-    code_routes, code_skipped = _parse_code(config, project_root)
+    code_routes, code_skipped = _parse_code(config, project_root, only_files=only_files)
     skipped.extend(code_skipped)
 
-    merged = _merge_per_route(openapi_routes, code_routes)
+    merged, collision_notes = _merge_per_route(openapi_routes, code_routes)
+    notes.extend(collision_notes)
     if not merged and not openapi_routes and not code_routes:
         notes.append(
             "No routes found from OpenAPI or code. Check config.openApiSource / framework."
@@ -82,24 +89,43 @@ def resolve_routes(
 
 def _merge_per_route(
     openapi_routes: list[RouteModel], code_routes: list[RouteModel]
-) -> list[RouteModel]:
-    """Spec routes take precedence; code fills gaps the spec missed."""
+) -> tuple[list[RouteModel], list[str]]:
+    """Spec routes take precedence; code fills gaps the spec missed.
+
+    When two *code*-sourced routes collide on the same METHOD+path (e.g. two route
+    files both registering ``GET /profile``), silently letting the second overwrite
+    the first hides a real ambiguity in the project. Keep the first one parsed and
+    surface a note instead, so the user can verify or retarget rather than getting an
+    unexplained, possibly-wrong route.
+    """
+    notes: list[str] = []
     by_key: dict[str, RouteModel] = {}
-    for route in code_routes:  # code first so spec overwrites on conflict
+    for route in code_routes:  # first-seen code route wins; spec may still override below
+        existing = by_key.get(route.key)
+        if existing is not None:
+            notes.append(
+                f"⚠ both {existing.code_ref or '?'} and {route.code_ref or '?'} "
+                f"register {route.method} {route.path} — using {existing.code_ref or '?'}; "
+                "verify with status or retarget explicitly."
+            )
+            continue
         by_key[route.key] = route
     for route in openapi_routes:
         by_key[route.key] = route
-    return list(by_key.values())
+    return list(by_key.values()), notes
 
 
 def _parse_code(
-    config: ProjectConfig, project_root: Path | str
+    config: ProjectConfig,
+    project_root: Path | str,
+    *,
+    only_files: Optional[list[str]] = None,
 ) -> tuple[list[RouteModel], list[str]]:
     """Dispatch to the framework parser. Wired in Step E."""
     try:
         from postman_mcp.input.parsers import parse_framework
 
-        return parse_framework(config.framework, project_root)
+        return parse_framework(config.framework, project_root, only_files=only_files)
     except ModuleNotFoundError:  # a framework parser module not present
         return [], []
 

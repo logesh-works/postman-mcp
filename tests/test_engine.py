@@ -41,6 +41,16 @@ def test_minimal_style_is_one_success_one_error(create_payment_route):
     assert codes == [201, 400]
 
 
+def test_single_style_is_one_response_only(create_payment_route):
+    item = build_request_item(create_payment_route, response_style="single")
+    assert [r["code"] for r in item["response"]] == [201]
+
+
+def test_single_is_the_default_style(create_payment_route):
+    item = build_request_item(create_payment_route)
+    assert [r["code"] for r in item["response"]] == [201]
+
+
 def test_no_auth_route_omits_auth_and_401(get_payment_route):
     item = build_request_item(get_payment_route, response_style="full")
     assert "auth" not in item["request"]

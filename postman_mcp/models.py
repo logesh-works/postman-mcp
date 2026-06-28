@@ -153,6 +153,10 @@ class RequestDiff(BaseModel):
     lines: list[str] = Field(default_factory=list)  # rendered "+ Body ..." lines
     preserved: list[str] = Field(default_factory=list)  # human-owned fields kept
     low_confidence: bool = False
+    # Table columns (diff/render.py renders these as the default preview format).
+    auth: str = "—"
+    body_name: str = "—"
+    response_name: str = "—"
 
 
 class SyncPlan(BaseModel):

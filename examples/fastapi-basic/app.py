@@ -1,11 +1,11 @@
-"""A minimal FastAPI payments API — the flagship Postman MCP example.
+"""A minimal FastAPI payments API: the flagship Postman MCP example.
 
 Run it:
     pip install -r requirements.txt
     uvicorn app:app --reload
 
 It exposes three routes with typed Pydantic bodies, an auth dependency, and declared
-responses — everything the Postman MCP engine needs to build complete requests.
+responses: everything the Postman MCP engine needs to build complete requests.
 """
 
 from __future__ import annotations

@@ -4,9 +4,7 @@
 
 # Postman MCP
 
-**Sync your API code into Postman collections — body, params, auth, responses, tests, and examples — with zero manual fill, straight from Claude Code.**
-
-OpenAPI-first · code-parsing fallback · a diff before every write.
+**Generate and update Postman requests from your API code, from inside Claude Code.**
 
 [![PyPI](https://img.shields.io/pypi/v/postman-mcp.svg)](https://pypi.org/project/postman-mcp/)
 [![Python](https://img.shields.io/pypi/pyversions/postman-mcp.svg)](https://pypi.org/project/postman-mcp/)
@@ -24,79 +22,229 @@ OpenAPI-first · code-parsing fallback · a diff before every write.
 
 ---
 
-> **Demo** — _an animated `syncapi` → diff → write recording goes here at launch
-> (see [`assets/README.md`](assets/README.md))._
+## Why does this exist?
+
+Once you ship an endpoint, the Postman collection for it starts going stale immediately.
+You add a field, Postman doesn't know. You add a new error response, Postman doesn't
+know. Nobody updates Postman by hand consistently, because it's pure busywork: open the
+request, retype the body you already wrote in code, guess at example values, repeat for
+every route.
+
+The information Postman needs already exists in your code: the route, the request body
+type, the auth dependency, the declared responses. Postman MCP reads that and writes the
+request for you, so the only thing you do by hand is review a diff and say yes.
+
+## How does it work?
+
+Postman MCP runs two things: a CLI (`postman-mcp`) for one-time setup, and an MCP server
+that Claude Code talks to while you work. You install it once per machine, run `init`
+once per project, and after that you only ever type slash commands inside Claude Code.
+
+Every sync command, no matter which one you call, ends up producing the same thing
+internally: a `RouteModel` for each route, which is just method + path + body + auth +
+responses in a normalized shape. That model can come from two places:
+
+- **An OpenAPI spec**, if your framework can emit one (FastAPI, NestJS with
+  `@nestjs/swagger`, Django REST Framework with `drf-spectacular`). This is the
+  high-confidence path because the spec is already typed and validated by the framework
+  itself.
+- **Parsing your code directly**, if there's no spec. This works for all four supported
+  frameworks and is the only path for Express, since Express has no native type system or
+  spec generator.
+
+Whichever source a route comes from, the engine turns its `RouteModel` into one complete
+Postman Collection v2.1 item: the request (method, URL, headers, body, auth), the saved
+response, and optionally a test script. That's the whole pipeline. Five slash commands
+exist on top of it; they just decide which routes go through it and where the result
+lands in your collection.
+
+## What happens when I run syncapi?
+
+Say you have this FastAPI route:
+
+```python
+@app.post("/payments", response_model=PaymentResponse, status_code=201)
+def create_payment(body: PaymentRequest, user: str = Depends(get_current_user)) -> PaymentResponse:
+    """Create a new payment.
+
+    Charges the given amount and returns the created payment record.
+    """
+    ...
+```
+
+You run:
 
 ```text
-/postman:syncapi createPayment --into payments
+/postman:syncapi create_payment --into payments
+```
 
-SYNC PREVIEW — POST /payments  →  collection / payments   [NEW] [openapi]
+Claude calls the `syncapi` tool, which resolves `create_payment` to its route, builds the
+Postman item, diffs it against what's already in your collection, and shows you the
+result without writing anything:
 
-+ Request    POST {{base_url}}/payments
-+ Auth       Bearer {{token}}              (from require_auth middleware)
-+ Body       { "amount": 4200, "currency": "USD", "method": "card" }
-+ Responses  201 Created, 400, 401, 422, 500
-+ Tests      status(201) · schema(PaymentResponse) · business(amount > 0)
-+ Examples   1 success, 4 error
+```text
+| Status | Method | Route | Target | Auth | Body | Response | Source |
+|---|---|---|---|---|---|---|---|
+| [NEW] | POST | /payments | payments | Bearer | PaymentRequest | 201 | [code] |
+
+Summary: 1 new · 0 modified · 0 deprecated
 
 Write? [y / n]
 ```
 
-## The problem
+Say `y` and it writes. Say `n` and nothing happens. There's no flag to skip the diff. If
+you target something ambiguous (two routes match the same name), it lists the candidates
+and asks you to be specific instead of guessing which one you meant.
 
-API code and Postman drift apart the moment you ship. Every new route, changed body
-shape, or added error response means going back into Postman by hand — re-typing fields,
-re-writing example data, re-doing test scripts. The work is mechanical, constant, and easy
-to skip, so collections rot. A rotten collection is worse than none: teammates trust it,
-then get burned by a stale endpoint.
+## What gets generated?
 
-The code already contains everything Postman needs — routes, types, middleware, comments.
-There's no reason a human should be the copy machine between them.
+This is the actual Collection v2.1 item the engine builds for `create_payment` above
+(`build_request_item()`, default settings, nothing hand-edited):
 
-## Why Postman MCP
+```json
+{
+  "name": "POST /payments",
+  "request": {
+    "method": "POST",
+    "header": [{ "key": "Content-Type", "value": "application/json" }],
+    "url": {
+      "raw": "{{base_url}}/payments",
+      "host": ["{{base_url}}"],
+      "path": ["payments"]
+    },
+    "description": "Create a new payment.\n\nCharges the given amount and returns the created payment record.",
+    "body": {
+      "mode": "raw",
+      "raw": "{\n  \"amount\": 4200,\n  \"currency\": \"USD\",\n  \"method\": \"string\"\n}",
+      "options": { "raw": { "language": "json" } }
+    },
+    "auth": {
+      "type": "bearer",
+      "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+    }
+  },
+  "response": [
+    {
+      "name": "201 201",
+      "code": 201,
+      "header": [{ "key": "Content-Type", "value": "application/json" }],
+      "body": "{\n  \"id\": 1,\n  \"amount\": 4200,\n  \"currency\": \"USD\",\n  \"status\": \"active\",\n  \"created_at\": \"2026-06-27T10:00:00Z\"\n}"
+    }
+  ]
+}
+```
 
-- **Zero manual fill.** Body, params, auth headers, every response, examples, and test
-  scaffolds — all generated from your code.
-- **OpenAPI-first.** When your framework emits a spec, one mapper covers FastAPI, NestJS,
-  and Django REST Framework. No spec? It falls back to parsing your code.
-- **Diff before every write.** Nothing reaches Postman until you've seen exactly what
-  changes. There is no skip flag.
-- **Never destroys your work.** Test scripts, manual examples, and edited descriptions are
-  read back and preserved on every sync.
-- **Secrets never touch the repo.** Your Postman API key is stored by reference — OS
-  keychain, env var, or a gitignored file.
-- **Low token cost.** `syncchanges` parses only what you changed and reads just the
-  collection's basic structure — never a full re-scan.
+A few things worth pointing out, because they're not obvious from the JSON:
 
-## Features
+- `amount` got the example value `4200` because the engine recognizes the field name
+  pattern and picks a plausible number, the same way it picks an email-looking string for
+  a field called `email`. It has no idea what your API actually returns; these are
+  realistic placeholders, not live data.
+- `method` got the generic value `"string"` because its name doesn't match any pattern
+  the example generator knows about. You'll see this a lot for fields named things like
+  `note`, `tag`, or anything domain-specific. Fill those in by hand, the same as you
+  would in any new Postman request.
+- There's exactly one saved response: the `201` declared by `response_model`. No `400` or
+  `401` was invented and attached. That's the default (`responseStyle: single`) and it's
+  deliberate, not a gap: a Postman collection full of speculative error responses nobody
+  asked for is worse than one with none. You can opt into `minimal` (success + one error)
+  or `full` (every declared 2xx plus a standard error set) in `postman-mcp.json` if you
+  want more.
+- No test script is attached. Test generation is off by default
+  (`generateTests: false`); turn it on if you want status/schema assertions added
+  automatically.
 
-| | |
-|---|---|
-| **Five sync commands** | from one route to the whole codebase |
-| **Frameworks** | FastAPI · Django REST Framework · Express · NestJS |
-| **Input** | OpenAPI 3.x spec (preferred) or framework code parsing, decided per route |
-| **Output** | complete Postman Collection v2.1 items — request, responses, scripts, examples, docs |
-| **Tests** | status + schema tiers (deterministic); business-logic tier gated/opt-in |
-| **Safety** | diff-before-write, soft deletes, preserved human work, secret masking |
+## What does not work yet?
+
+`1.0.0` builds on the `0.1.0` MVP — tagged, published to PyPI, and validated with a live
+`init` → `syncall` run against a real Postman workspace. Being upfront about what's still
+a gap:
+
+- **Django's `DefaultRouter`-registered viewsets aren't resolved by the code parser.**
+  Explicit `path('x/', ViewSet.as_view({'get': 'list'}))` mappings work; router-generated
+  URLs don't yet. Use the OpenAPI path (`drf-spectacular`) for router-driven projects.
+- **Express and NestJS code parsing is regex/heuristic, not a real AST.** Neither
+  language has a parser this project depends on, so body and auth detection is
+  best-effort and flagged "lower confidence" in the diff when it falls back to inferring
+  from usage instead of reading an explicit type or schema.
+- **Business-logic test assertions are gated off.** The status and schema test tiers are
+  reliable and ship; a third tier that asserts on actual response values exists in code
+  but isn't wired up yet, because the quality bar for "guessed the right assertion" isn't
+  there.
+- **No CI integration yet.** No GitHub Action to fail a PR on drift, no Newman runner for
+  the generated tests. See [ROADMAP.md](ROADMAP.md) for what's planned and in what order.
 
 ## Architecture
 
+Two layers, cleanly separated. **Claude Code is the intelligence layer**; **Postman MCP
+is the deterministic execution layer.**
+
 ```text
-Claude Code  ──slash commands──▶  Postman MCP Server (local)
-             ◀──diffs/prompts───
-                                      │
-   ┌──────────┬──────────┬───────────┼──────────┬───────────┐
-   ▼          ▼          ▼           ▼          ▼           ▼
+You
+ │  slash command (+ optional --prompt)
+ ▼
+Claude Code            ← intelligence: reasoning, prompt / skill interpretation
+ │  MCP tool call (no prompt forwarded)
+ ▼
+Postman MCP Server (local)   ← deterministic: parse, build, diff, merge, write
+ │
+ ┌──────────┬──────────┬───────────┼──────────┬───────────┐
+ ▼          ▼          ▼           ▼          ▼           ▼
 Command    Input      Engine     Postman      Git        Config +
 router     resolver  (builder)   client      reader      Secret store
          (OpenAPI/                (REST)    (diff since
           code)                              commit)
 ```
 
-The five sync commands are **one engine plus five selectors** — the engine turns a
-normalized route model into a complete Postman request; the selectors decide which code
-goes in and where it lands. Full write-up in the
+The five commands aren't five separate implementations. They're five different ways of
+picking *which* routes to sync (one route, a whole file, everything changed since your
+last sync, the whole codebase); all of them hand their routes to the same input resolver
+and the same engine. Fix a bug in the engine and all five commands get the fix at once.
+Full write-up in the
 [architecture docs](https://logesh-works.github.io/postman-mcp/architecture/overview/).
+
+The MCP server runs **no LLM** and interprets no natural language. Anything you write in
+`--prompt` is read by Claude *before* it calls the tool — it never reaches the engine. See
+[AI-assisted synchronization](#ai-assisted-synchronization) below.
+
+## AI-assisted synchronization
+
+Every sync command takes an optional `--prompt` flag. It's guidance for **Claude**, not an
+input to the engine:
+
+```bash
+/postman:syncapi createPayment \
+  --prompt "Act as a Stripe API architect"
+```
+
+Claude reads the prompt while preparing the synchronization — it can shape how it frames
+the diff, which examples and conventions it favors, what it recommends, and any follow-up
+edits it offers. Then it calls the deterministic `syncapi` tool exactly as it would
+without a prompt. The flow is:
+
+```text
+You → Claude Code → (prompt interpretation) → MCP tool call → Postman MCP
+```
+
+What this means in practice:
+
+- **The prompt influences Claude.** Reasoning, terminology, persona, the craft around the
+  sync.
+- **The prompt never influences engine structure.** Route matching, identity, auth
+  detection, schemas, response contracts, and merge behavior are computed deterministically
+  from your code, regardless of what the prompt says.
+- **Postman MCP stays deterministic and LLM-agnostic.** It does not run a model, does not
+  parse the prompt, and depends on no Anthropic/OpenAI API.
+
+A few more examples:
+
+```bash
+/postman:syncapi createOrder --prompt "Use Indian ecommerce examples"
+/postman:syncchanges --prompt "Generate enterprise-grade documentation"
+/postman:syncall --prompt "Use enterprise API documentation style"
+```
+
+See [`examples/prompts/`](examples/prompts/) for ready-made guidance you can adapt.
 
 ## Installation
 
@@ -104,8 +252,10 @@ goes in and where it lands. Full write-up in the
 pip install postman-mcp
 ```
 
-Requires Python ≥ 3.10, [Claude Code](https://claude.com/claude-code), and a Postman
-personal API key. See [Installation](https://logesh-works.github.io/postman-mcp/getting-started/installation/).
+Requires Python 3.10 or newer, [Claude Code](https://claude.com/claude-code), and a
+Postman personal API key. See
+[Installation](https://logesh-works.github.io/postman-mcp/getting-started/installation/)
+for the full walkthrough.
 
 ## Quick start
 
@@ -118,44 +268,38 @@ cd my-api-project
 postman-mcp init
 #   → paste your Postman API key
 #   → pick workspace + collection
-#   → done: server registered, commands installed
+#   → done: server registered, slash commands installed
 
 # 3. open Claude Code in this project, then:
 /postman:syncall        # first full sync
 /postman:syncchanges    # from now on, after each change
 
-# anytime something looks off:
+# if something looks wrong:
 postman-mcp doctor      # checks the whole setup chain
 ```
 
-## How it works
-
-| Step | Where | What |
-|---|---|---|
-| `pip install postman-mcp` | terminal | CLI + MCP server + slash commands + engine |
-| `postman-mcp init` | terminal | key handshake, pick workspace + collection, write config, register MCP server, install slash commands |
-| `/postman:*` | Claude Code | sync APIs into the collection |
-
-Three actions — **install**, **init**, then **use inside Claude Code**. After init, you
-never touch the terminal again for normal work.
+After `init`, you don't go back to the terminal for day-to-day use. Everything happens
+through slash commands.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| [`/postman:syncapi`](https://logesh-works.github.io/postman-mcp/commands/syncapi/) `<fn\|"METHOD /route"\|code> [--into path]` | Sync **one** API (the kernel). |
-| [`/postman:syncchanges`](https://logesh-works.github.io/postman-mcp/commands/syncchanges/) `[--last N] [--since ref]` | Sync **what changed** since last sync (daily driver). |
-| [`/postman:sync`](https://logesh-works.github.io/postman-mcp/commands/sync/) `-<file\|module\|dir> [--into path]` | Sync everything in one file/module/dir. |
-| [`/postman:syncall`](https://logesh-works.github.io/postman-mcp/commands/syncall/) `[--into path]` | Sync the **whole** codebase. |
-| [`/postman:createenv`](https://logesh-works.github.io/postman-mcp/commands/createenv/) `[name]` | Generate a Postman environment from code. |
-| [`/postman:status`](https://logesh-works.github.io/postman-mcp/commands/status/) `[--since ref]` | Read-only drift check. No writes. |
+| [`/postman:syncapi`](https://logesh-works.github.io/postman-mcp/commands/syncapi/) `<fn\|"METHOD /route"\|code> [--into path] [--prompt "…"]` | Sync one route. |
+| [`/postman:syncchanges`](https://logesh-works.github.io/postman-mcp/commands/syncchanges/) `[--last N] [--since ref] [--prompt "…"]` | Sync what changed since the last sync. The one you run most. |
+| [`/postman:sync`](https://logesh-works.github.io/postman-mcp/commands/sync/) `-<file\|module\|dir> [--into path] [--prompt "…"]` | Sync everything in one file, module, or directory. |
+| [`/postman:syncall`](https://logesh-works.github.io/postman-mcp/commands/syncall/) `[--into path] [--prompt "…"]` | Sync the whole codebase. Usually a first-run thing. |
+| [`/postman:createenv`](https://logesh-works.github.io/postman-mcp/commands/createenv/) `[name]` | Generate a Postman environment from your code. |
+| [`/postman:status`](https://logesh-works.github.io/postman-mcp/commands/status/) `[--since ref]` | Show drift without writing anything. |
 
-Terminal-only: `postman-mcp init`, `postman-mcp doctor`, `postman-mcp serve`,
+Terminal-only commands: `postman-mcp init`, `postman-mcp doctor`, `postman-mcp serve`,
 `postman-mcp version`.
 
 ## Examples
 
-Runnable examples per framework live in [`examples/`](examples/):
+Each example is a small, runnable app. Clone the repo and look at the README in any of
+these to see the exact diff output and the real generated Collection item for that
+framework:
 
 | Example | Framework | Input path |
 |---|---|---|
@@ -167,25 +311,31 @@ Runnable examples per framework live in [`examples/`](examples/):
 
 ## Configuration
 
-All config lives in a small, committable, secret-free `postman-mcp.json` at your project
-root. See [Configuration](https://logesh-works.github.io/postman-mcp/getting-started/configuration/).
+Setup writes a `postman-mcp.json` to your project root. It's small, meant to be
+committed, and never holds a secret directly, just a reference to where the key lives
+(OS keychain, an env var, or a gitignored file). See
+[Configuration](https://logesh-works.github.io/postman-mcp/getting-started/configuration/)
+for every field.
 
 ## Framework support
 
-OpenAPI-first for FastAPI, NestJS (`@nestjs/swagger`), and DRF (`drf-spectacular`);
-code-parsing fallback for all four, with Express as the primary code-path case. Details and
-known limits in the [framework guides](https://logesh-works.github.io/postman-mcp/frameworks/fastapi/).
+| Framework | OpenAPI path | Code-parsing fallback |
+|---|---|---|
+| FastAPI | yes (native `/openapi.json`) | yes, AST-based |
+| NestJS | yes, with `@nestjs/swagger` | yes, heuristic (no TS AST) |
+| Django REST Framework | yes, with `drf-spectacular` | yes, but not router-generated URLs yet |
+| Express | no native spec support | yes, this is the primary path |
+
+Details and the specific known limits for each are in the
+[framework guides](https://logesh-works.github.io/postman-mcp/frameworks/fastapi/).
 
 ## Roadmap
 
-`0.1.0` MVP → `0.2.0` hardening → `0.3.0` CI + Newman → `1.0.0` stable. See
-[ROADMAP.md](ROADMAP.md).
+`1.0.0` (current) gets the full kernel working end to end and feature-complete. `1.1.0` is
+about hardening the parsers against real, messier codebases. `1.2.0` adds CI integration.
+See [ROADMAP.md](ROADMAP.md) for the actual breakdown and what's explicitly out of scope.
 
 ## Contributing
-
-Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md), the
-[Code of Conduct](CODE_OF_CONDUCT.md), and the
-[development docs](https://logesh-works.github.io/postman-mcp/development/contributing/).
 
 ```bash
 git clone https://github.com/logesh-works/postman-mcp
@@ -194,17 +344,16 @@ python -m venv .venv && pip install -e ".[dev]"
 pytest --cov
 ```
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) and the
+[Code of Conduct](CODE_OF_CONDUCT.md) before opening a PR.
+
 ## Security
 
-The API key is stored by reference only and every write is gated behind a diff. Report
-vulnerabilities privately — see [SECURITY.md](SECURITY.md).
+Your Postman API key is stored by reference, never written into the repo, and every
+write to Postman goes through the diff-confirm step described above. To report a
+vulnerability, don't open a public issue, see [SECURITY.md](SECURITY.md) for how to
+reach the maintainer privately.
 
 ## License
 
 [MIT](LICENSE) © Logesh Kumar (logeshkumar.in).
-
----
-
-<div align="center">
-<sub>Code is the source of truth for what an API <em>is</em>; Postman for what <em>exists</em>.</sub>
-</div>

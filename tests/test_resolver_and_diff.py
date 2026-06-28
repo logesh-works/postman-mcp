@@ -49,6 +49,48 @@ def test_resolve_unreachable_spec_falls_back_with_note(tmp_path):
     assert any("falling back to code parsing" in n for n in result.notes)
 
 
+def test_resolve_only_files_skips_unchanged_files(tmp_path):
+    # Two route files; only one is "changed". With only_files, the parser must scan
+    # just that file — the unrelated route never appears (the token/work saving).
+    (tmp_path / "payments.js").write_text(
+        "app.post('/payments', (req, res) => { const { amount } = req.body; res.end(); });",
+        encoding="utf-8",
+    )
+    (tmp_path / "users.js").write_text(
+        "app.get('/users', (req, res) => res.end());", encoding="utf-8"
+    )
+    config = ProjectConfig(framework="express", inputMode="code")
+
+    full = resolve_routes(config, tmp_path)
+    assert {r.key for r in full.routes} == {"POST:/payments", "GET:/users"}
+
+    narrowed = resolve_routes(config, tmp_path, only_files=["payments.js"])
+    assert {r.key for r in narrowed.routes} == {"POST:/payments"}
+
+
+def test_resolve_code_route_collision_keeps_first_and_warns(tmp_path):
+    # Two files both register GET /profile — the kind of ambiguity that used to be
+    # silently dropped (last file parsed would win with no record of the conflict).
+    (tmp_path / "members.js").write_text(
+        "app.get('/profile', (req, res) => res.json({ role: 'member' }));",
+        encoding="utf-8",
+    )
+    (tmp_path / "employers.js").write_text(
+        "app.get('/profile', (req, res) => res.json({ role: 'employer' }));",
+        encoding="utf-8",
+    )
+    config = ProjectConfig(framework="express", inputMode="code")
+    result = resolve_routes(config, tmp_path)
+    profile_routes = [r for r in result.routes if r.key == "GET:/profile"]
+    # exactly one survives — file enumeration order decides which, but never both
+    assert len(profile_routes) == 1
+    assert profile_routes[0].code_ref in ("members.js", "employers.js")
+    assert any(
+        "register GET /profile" in n and "employers.js" in n and "members.js" in n
+        for n in result.notes
+    )
+
+
 # --- target matching ----------------------------------------------
 
 def _routes():

@@ -1,10 +1,10 @@
-"""Minimal Django REST Framework payments API — OpenAPI path via drf-spectacular.
+"""Minimal Django REST Framework payments API: OpenAPI path via drf-spectacular.
 
 This is a scaffold focused on what Postman MCP reads: serializers, viewsets, and
 permission classes. With drf-spectacular installed, the generated OpenAPI schema is the
-high-confidence input path.
-
-Wire-up (settings/urls) is omitted for brevity; see the DRF + drf-spectacular docs.
+high-confidence input path. URL wiring lives in ``urls.py`` alongside this file; a full
+Django project (settings, manage.py) is still omitted, see the DRF + drf-spectacular docs
+for that part.
 """
 
 from rest_framework import serializers, viewsets
@@ -21,10 +21,11 @@ class PaymentSerializer(serializers.Serializer):
 class PaymentViewSet(viewsets.ViewSet):
     """CRUD for payments. Auth is required (IsAuthenticated → Bearer {{token}})."""
 
+    serializer_class = PaymentSerializer
     permission_classes = [IsAuthenticated]
 
     def create(self, request):
-        """POST /payments — create a payment."""
+        """POST /payments: create a payment."""
         serializer = PaymentSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(
@@ -39,7 +40,7 @@ class PaymentViewSet(viewsets.ViewSet):
         )
 
     def retrieve(self, request, pk=None):
-        """GET /payments/{id} — fetch a payment."""
+        """GET /payments/{id}: fetch a payment."""
         return Response(
             {"id": pk, "amount": 4200, "currency": "USD", "status": "succeeded"}
         )

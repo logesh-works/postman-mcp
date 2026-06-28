@@ -2,32 +2,58 @@
 
 The canonical roadmap lives in
 [`ROADMAP.md`](https://github.com/logesh-works/postman-mcp/blob/main/ROADMAP.md) at the
-repo root. Summary of the milestones:
+repo root. Here's the short version of each milestone:
 
-## 0.1.0 — MVP: the kernel works end to end
+## 0.1.0: the kernel works end to end
 
-Setup spine, the engine, OpenAPI-first resolution, code-parsing fallback for four
-frameworks, all six commands, diff-before-write, and preservation of human-owned fields.
-**Gated on a real test suite (>80% coverage) and a validated live run before release.**
+Setup commands, the deterministic engine, OpenAPI-first resolution, code-parsing fallback
+for all four frameworks, all six commands, diff-before-write, and preservation of
+human-owned fields. Tagged, published to PyPI, and validated with a live run against a
+real Postman workspace.
 
-## 0.2.0 — Hardening and parser depth
+## 1.0.0: the Claude-guided prompt layer (current)
 
-Django `DefaultRouter` resolution, stronger Express/NestJS extraction, `syncchanges`
-file→route mapping for pure-OpenAPI sources, and an opt-in business-logic test tier.
+Adds `--prompt` on the four sync commands — generation guidance consumed entirely by
+Claude Code, never forwarded to the deterministic MCP server — plus `examples/prompts/`
+and the documented intelligence/execution layer-separation principle. No changes to the
+engine, resolver, or merge logic.
 
-## 0.3.0 — CI and the test loop
+## 1.1.0: hardening and parser depth
 
-GitHub Actions / GitLab CI hook, Newman test-runner integration, and a `--check` mode for
-`status` suitable for CI gating.
+Django `DefaultRouter` resolution, stronger Express and NestJS extraction, `syncchanges`
+file-to-route mapping for pure-OpenAPI sources, and an opt-in business-logic test tier.
 
-## 1.0.0 — Stable, documented, supported
+## 1.2.0: CI and the test loop
 
-SemVer guarantees, a documented deprecation policy, complete framework guides, validated
-success metrics, and a stable parser interface for community frameworks.
+A GitHub Actions / GitLab CI hook, Newman test-runner integration, and a `--check` mode
+for `status` suitable for CI gating.
 
-## Beyond 1.0
+## 1.3.0: proven at scale
 
-Mock server from schema · pre-commit OWASP checks · auto-published living docs.
+A documented deprecation policy on top of the existing SemVer guarantee, complete
+framework guides, validated success metrics, and a stable parser interface for
+community-contributed frameworks.
+
+## Skills
+
+`--prompt` is **Phase 1** of a skill architecture. Today you can pass Claude free-form
+guidance for a sync; the next phase packages that into reusable, named skills:
+
+```bash
+--skill fintech
+--skill healthcare
+--skill ecommerce
+```
+
+A skill is a curated bundle of prompt guidance that Claude loads before calling the MCP
+tool. The layer boundary holds: **skills are consumed by Claude, never by the MCP
+server**, and the engine stays deterministic. See the
+[Prompt & skill layer](architecture/overview.md#prompt-skill-layer).
+
+## Beyond 1.3
+
+A mock server generated from your schema, pre-commit OWASP checks, and auto-published
+living docs.
 
 ---
 

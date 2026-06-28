@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterator
+from typing import Iterable, Iterator, Optional
 
 from postman_mcp.models import FieldType
 
@@ -24,6 +24,37 @@ def iter_source_files(root: Path | str, suffixes: tuple[str, ...]) -> Iterator[P
             continue
         if path.suffix in suffixes:
             yield path
+
+
+def iter_given_files(
+    root: Path | str, paths: Iterable[str], suffixes: tuple[str, ...]
+) -> Iterator[Path]:
+    """Yield only the given files, resolved relative to ``root`` and filtered to
+    ``suffixes`` — used for incremental syncs so a parser walks just the files git
+    reports as changed instead of re-scanning the whole project.
+    """
+    root = Path(root)
+    seen: set[Path] = set()
+    for raw in paths:
+        path = Path(raw)
+        if not path.is_absolute():
+            path = root / path
+        if path.suffix not in suffixes or not path.is_file():
+            continue
+        resolved = path.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        yield path
+
+
+def source_files(
+    root: Path | str, suffixes: tuple[str, ...], only_files: Optional[Iterable[str]]
+) -> Iterator[Path]:
+    """``iter_given_files`` when ``only_files`` is given, else the full project scan."""
+    if only_files is None:
+        return iter_source_files(root, suffixes)
+    return iter_given_files(root, only_files, suffixes)
 
 
 # Map Python annotation / TS type names to coarse field types.

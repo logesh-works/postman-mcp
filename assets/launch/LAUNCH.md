@@ -1,35 +1,46 @@
 # Launch assets
 
-Copy-ready text for publishing Postman MCP. Tune voice per platform; keep the core promise
-identical: **sync API code into Postman with zero manual fill, diff before every write.**
+Copy-ready text for publishing Postman MCP. Tune the voice per platform, but keep the
+core fact the same: it generates and updates Postman requests from your API code, and
+shows a diff before every write.
 
-> ⚠️ **Pre-launch gate:** do not post any of these until the
-> [release gates](../../docs/development/release-process.md) are met — a real test suite
-> (>80% coverage) and a validated live `init → syncall` run. Launching on top of the
-> currently-missing test suite would burn the one first impression.
+> **Pre-launch gate:** `0.1.0` already met the release gates — real test suite, live
+> `init` → `syncall` run, tagged and published to PyPI. Before posting any of this for
+> `1.0.0`, re-confirm the [release checklist](../../docs/development/release-process.md)
+> for the new tag (CI green, changelog updated, `1.0.0` itself tagged and published).
+
+## Messaging guardrails
+
+The architecture is two clean layers — **Claude is the intelligence layer, the MCP server
+is the deterministic execution layer** — and the messaging must reflect that.
+
+- ✅ Use: **"Claude-guided Postman synchronization"** or **"AI-assisted Postman
+  synchronization powered by Claude Code."**
+- ✅ Fine to highlight `--prompt` as Claude-side guidance ("steer the sync in plain
+  English; the engine stays deterministic").
+- ❌ Avoid: **"AI inside MCP,"** "the MCP server uses AI/an LLM," or anything implying the
+  server interprets prompts or runs a model. It does not.
 
 ---
 
 ## PyPI description (short)
 
-> An MCP server for Claude Code that syncs your API code into Postman collections —
-> body, params, auth, responses, tests, and examples — with zero manual fill. OpenAPI-first,
-> code-parsing fallback, and a diff before every write.
+> An MCP server for Claude Code that generates and updates Postman requests from your
+> API code, with a diff before every write.
 
 (The long description is the rendered `README.md`.)
 
 ## GitHub "About" section
 
-> Sync your API code into Postman collections from Claude Code — OpenAPI-first, zero manual
-> fill, diff before every write.
+> Generates and updates Postman requests from your API code, from inside Claude Code.
 
 **Website:** https://logesh-works.github.io/postman-mcp/
 
 ## GitHub Topics
 
 ```
-postman · mcp · model-context-protocol · claude-code · openapi · api · fastapi ·
-django · express · nestjs · api-testing · developer-tools · python · automation ·
+postman, mcp, model-context-protocol, claude-code, openapi, api, fastapi,
+django, express, nestjs, api-testing, developer-tools, python, automation,
 api-documentation
 ```
 
@@ -38,50 +49,55 @@ api-documentation
 ## Hacker News (Show HN)
 
 **Title:**
-`Show HN: Postman MCP – sync your API code into Postman from Claude Code, zero manual fill`
+`Show HN: Postman MCP, syncs your API code into Postman from Claude Code`
 
 **Body:**
 
-> I got tired of being the manual copy machine between my API code and Postman. Every new
-> route or changed body meant re-typing fields, re-writing example data, and re-doing test
-> scripts by hand — so my collections always rotted.
+> I kept manually re-typing the same information into Postman that already existed in my
+> code: request bodies, example values, test assertions. Every time a route changed, the
+> Postman collection didn't, until someone noticed and fixed it by hand. So I built
+> something to read the code directly and write the Postman request for me.
 >
 > Postman MCP is an MCP server for Claude Code that reads your codebase and writes
-> fully-populated Postman requests: body, params, auth headers, every response, realistic
-> examples, and a test scaffold. Five sync commands cover the range from one route
-> (`/postman:syncapi`) to the whole project (`/postman:syncall`).
+> complete Postman requests: body, params, auth headers, a response, realistic example
+> values, and optionally a test script. Five sync commands cover everything from one
+> route (`/postman:syncapi`) to the whole project (`/postman:syncall`).
 >
-> Design choices I'd love feedback on:
-> - **OpenAPI-first.** When your framework emits a spec (FastAPI, NestJS, DRF), one mapper
->   handles all of them. No spec (e.g. Express)? It falls back to parsing your code, and
->   labels each request `[openapi]` or `[code]` so you can see the confidence.
-> - **Diff before every write — no skip flag.** Nothing reaches Postman until you've seen
->   exactly what changes.
-> - **It never destroys your work.** Hand-written test scripts and edited examples are read
->   back and preserved on every sync; only structural fields are overwritten from code.
+> A few choices I'd like feedback on:
+> - **OpenAPI-first.** When your framework emits a spec (FastAPI, NestJS, DRF), one
+>   mapper handles all of them. No spec, like with Express? It falls back to parsing
+>   your code directly, and labels each request `[openapi]` or `[code]` so you can see
+>   which confidence level you're getting.
+> - **A diff before every write, no flag to skip it.** Nothing reaches Postman until
+>   you've seen exactly what's about to change.
+> - **It doesn't destroy your work.** Hand-written test scripts and edited examples are
+>   read back and kept on every sync; only the structural fields get overwritten from
+>   code.
 > - **Secrets never touch the repo.** The Postman API key is stored by reference (OS
->   keychain / env / gitignored file).
+>   keychain, env var, or a gitignored file), never written into committed config.
 >
-> `pip install postman-mcp` → `postman-mcp init` → use the `/postman:*` commands in Claude
-> Code. MIT licensed. Repo + docs in the first comment. What would make you trust a tool
-> like this to write to your collections?
+> `pip install postman-mcp`, then `postman-mcp init`, then use the `/postman:*` commands
+> in Claude Code. MIT licensed. Repo and docs in the first comment. What would make you
+> trust a tool like this to write to your own collections?
 
 ## Reddit (r/Python, r/webdev, r/django, r/node)
 
 **Title:**
-`I built an MCP server that syncs your API code into Postman — zero manual fill, diff before every write`
+`I built an MCP server that generates Postman requests from your API code`
 
 **Body:**
 
-> If you keep a Postman collection per project, you know the pain: every route change means
-> manually re-typing bodies, examples, and tests, so the collection drifts and teammates
-> get burned by stale endpoints.
+> If you maintain a Postman collection for a real project, you know how this goes: a
+> route changes, the collection doesn't, and a teammate gets burned by a stale endpoint a
+> few weeks later. Updating it by hand is pure busywork since the information already
+> exists in the code.
 >
-> **Postman MCP** reads your code and generates complete Postman requests — body, params,
-> auth, all responses, examples, and test scaffolds — from Claude Code. It's OpenAPI-first
-> (FastAPI / NestJS / DRF) with a code-parsing fallback (Express + the rest), and it shows
-> a diff before every write so nothing happens by surprise. Your hand-written test scripts
-> are preserved across syncs.
+> Postman MCP reads your code and generates complete Postman requests (body, params,
+> auth, a response, examples, and optionally test scripts) from inside Claude Code. It
+> uses your framework's OpenAPI spec when there is one (FastAPI, NestJS, DRF) and falls
+> back to parsing the code directly when there isn't (Express, mainly). It shows a diff
+> before every write, and your hand-written test scripts survive every sync instead of
+> getting overwritten.
 >
 > ```bash
 > pip install postman-mcp
@@ -90,56 +106,66 @@ api-documentation
 > /postman:syncall
 > ```
 >
-> It's open source (MIT). Repo: https://github.com/logesh-works/postman-mcp — docs:
-> https://logesh-works.github.io/postman-mcp/ . Honest feedback welcome, especially on the
-> framework parsers and the safety model.
+> It's open source (MIT). Repo: https://github.com/logesh-works/postman-mcp, docs:
+> https://logesh-works.github.io/postman-mcp/. Honest feedback welcome, especially on the
+> framework parsers and whether the safety model actually holds up.
 
-*(Per-subreddit: lead with the relevant framework — DRF for r/django, Express/Nest for
-r/node — and read each subreddit's self-promotion rules first.)*
+*(Per subreddit: lead with the relevant framework, DRF for r/django, Express/Nest for
+r/node, and read each subreddit's self-promotion rules first.)*
 
 ## LinkedIn
 
-> **Your Postman collection rots the moment you ship. I built something to fix that.**
+> **Your Postman collection goes stale the moment you ship. I built something to fix
+> that.**
 >
-> API code and Postman drift apart constantly — every new route or changed body means
-> going back into Postman by hand. The work is mechanical, easy to skip, and the result is
-> a collection nobody trusts.
+> API code and Postman drift apart constantly. Every new route or changed body means
+> going back into Postman by hand to keep it current. Nobody does this consistently,
+> because it's pure busywork, so collections rot and teammates stop trusting them.
 >
-> So I built **Postman MCP**: an open-source MCP server for Claude Code that reads your
-> codebase and writes fully-populated Postman requests — body, params, auth, responses,
-> examples, and tests — with zero manual fill.
+> So I built Postman MCP: an open-source MCP server for Claude Code that reads your
+> codebase and writes complete Postman requests (body, params, auth, responses,
+> examples, and tests) without you typing any of it by hand.
 >
-> → OpenAPI-first, with a code-parsing fallback for frameworks without a spec
-> → A diff before every write (no surprises reaching your collection)
-> → Your hand-written tests and examples are preserved on every sync
-> → Secrets never touch the repo
+> What it does:
+> - Uses your framework's OpenAPI spec when there is one, and falls back to parsing the
+>   code directly when there isn't.
+> - Shows a diff before every write. No flag to skip it.
+> - Keeps your hand-written tests and examples across every sync instead of overwriting
+>   them.
+> - Never writes secrets into the repo.
 >
 > `pip install postman-mcp`, run `postman-mcp init`, then drive it from Claude Code.
 >
-> MIT licensed. Repo and docs in the comments. I'd love feedback from anyone who maintains
-> API collections at scale.
+> MIT licensed. Repo and docs in the comments. I'd love feedback from anyone who
+> maintains API collections at scale.
 >
 > \#Python #API #Postman #DeveloperTools #OpenSource #MCP
 
 ## X / Twitter (thread starter)
 
-> Your Postman collection rots the moment you ship.
+> Your Postman collection goes stale the moment you ship.
 >
-> Postman MCP reads your API code and writes complete Postman requests — body, params,
-> auth, responses, tests, examples — from Claude Code. Zero manual fill. Diff before every
-> write.
+> Postman MCP reads your API code and writes complete Postman requests (body, params,
+> auth, responses, tests, examples) from Claude Code. No manual typing. A diff before
+> every write.
 >
-> `pip install postman-mcp` 🧵👇
+> `pip install postman-mcp`
+
+**Follow-up tweet:**
+
+> It's Claude-guided, but deterministic. Steer a sync in plain English —
+> `--prompt "Act as a Stripe API architect"` — and Claude shapes the framing. The MCP
+> server itself runs no LLM: the same code always produces the same Postman item.
 
 ---
 
 ## Launch checklist
 
-- [ ] Release gates met (tests + live run) — see release-process.md
-- [ ] `0.1.0` published to PyPI and installable (`pip install postman-mcp`)
+- [ ] A live `init` → `syncall` run against a real Postman workspace. See release-process.md.
+- [ ] `1.0.0` published to PyPI and installable (`pip install postman-mcp`)
 - [ ] Docs site live on GitHub Pages
 - [ ] Social preview image set on the repo
 - [ ] Animated demo embedded in the README
-- [ ] GitHub About + Topics set
+- [ ] GitHub About and Topics set
 - [ ] README badges all green (CI, PyPI, license, coverage)
-- [ ] Post to HN / Reddit / LinkedIn / X (stagger, engage with replies)
+- [ ] Post to HN, Reddit, LinkedIn, X (stagger them, engage with replies)

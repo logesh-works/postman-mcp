@@ -2,7 +2,7 @@
 
 Identical surface to ../fastapi-basic, but here we point Postman MCP at the live spec
 (`/openapi.json`) so it uses the typed, high-confidence OpenAPI path instead of code
-parsing. Note the explicit `responses=` declarations — they flow straight into saved
+parsing. Note the explicit `responses=` declarations: they flow straight into saved
 Postman responses via the spec.
 
 Run it:

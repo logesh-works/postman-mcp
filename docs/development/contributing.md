@@ -16,7 +16,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-All tests mock the Postman REST API via `respx` — **no real API key is needed** and no
+All tests mock the Postman REST API via `respx`. No real API key is needed, and no
 network calls are made.
 
 ## Where things live
@@ -35,7 +35,7 @@ network calls are made.
 
 - **Small, single-responsibility modules.** The hard work is isolated in the engine.
 - **Explain the why, not the what.** Comments should capture non-obvious intent or
-  constraints — the code already says what it does.
+  constraints. The code already says what it does.
 - **Add a test for every behavior change.** Bug fixes get a regression test.
 - **Update the docs** in `docs/` when you change a command, flag, or config field, and add
   a `CHANGELOG.md` entry under `## [Unreleased]`.
@@ -52,7 +52,7 @@ mkdocs build --strict   # what CI runs
 
 1. Create `input/parsers/<framework>.py` implementing the parser interface in
    `input/parsers/base.py`.
-2. Emit the same normalized `RouteModel` as every other source — the engine must not need
+2. Emit the same normalized `RouteModel` as every other source. The engine must not need
    to know where the model came from.
 3. Register detection in `input/detect.py`.
 4. Add a guide under `docs/frameworks/` and a runnable example under `examples/`.

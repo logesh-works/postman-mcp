@@ -1,0 +1,66 @@
+{
+  "name": "GET /payments",
+  "request": {
+    "method": "GET",
+    "header": [],
+    "url": {
+      "raw": "{{base_url}}/payments",
+      "host": [
+        "{{base_url}}"
+      ],
+      "path": [
+        "payments"
+      ]
+    },
+    "description": "",
+    "auth": {
+      "type": "bearer",
+      "bearer": [
+        {
+          "key": "token",
+          "value": "{{token}}",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "response": [
+    {
+      "name": "200 200",
+      "originalRequest": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/payments",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "payments"
+          ]
+        },
+        "description": "",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "status": "200",
+      "code": 200,
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": "{\n  \"amount\": 4200,\n  \"currency\": \"USD\"\n}",
+      "_postman_previewlanguage": "json"
+    }
+  ]
+}

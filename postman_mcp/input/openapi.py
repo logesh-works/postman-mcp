@@ -73,6 +73,18 @@ def _resolve_ref(ref: str, spec: dict[str, Any]) -> dict[str, Any]:
     return node if isinstance(node, dict) else {}
 
 
+def _ref_name(schema: dict[str, Any]) -> Optional[str]:
+    """The schema's own name (``PaymentRequest`` from ``#/components/schemas/PaymentRequest``).
+
+    Must be read from the schema *before* it's deref'd, since resolving the ``$ref``
+    replaces it with the target's body and loses the name.
+    """
+    ref = schema.get("$ref")
+    if isinstance(ref, str) and ref.startswith("#/"):
+        return ref.rsplit("/", 1)[-1]
+    return None
+
+
 _TYPE_MAP = {
     "string": FieldType.STRING,
     "integer": FieldType.INTEGER,
@@ -224,7 +236,7 @@ def _operation_to_route(
         content = request_body.get("content", {})
         schema = _pick_json_schema(content)
         if schema is not None:
-            body = _schema_to_body(schema, spec, name="RequestBody")
+            body = _schema_to_body(schema, spec, name=_ref_name(schema) or "RequestBody")
 
     responses: list[ResponseModel] = []
     for code, resp in (op.get("responses") or {}).items():
@@ -239,7 +251,7 @@ def _operation_to_route(
             ResponseModel(
                 status=status,
                 description=resp.get("description"),
-                body=_schema_to_body(schema, spec, name=f"Response{status}")
+                body=_schema_to_body(schema, spec, name=_ref_name(schema) or f"Response{status}")
                 if schema is not None
                 else None,
             )

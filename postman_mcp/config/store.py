@@ -33,7 +33,9 @@ class ProjectConfig(BaseModel):
     apiKeyRef: str = "keychain:postman-mcp"  # reference only, never the key
     # Output shaping (owner preference; reversible):
     generateTests: bool = False  # add status/schema test scripts to requests
-    responseStyle: str = "minimal"  # "minimal" = 1 success + 1 error · "full" = 2xx + standard errors
+    # "single" = 1 best response only (default) · "minimal" = 1 success + 1 error ·
+    # "full" = every declared 2xx + standard errors
+    responseStyle: str = "single"
 
 
 class LastUpdate(BaseModel):

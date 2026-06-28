@@ -1,0 +1,80 @@
+{
+  "name": "GET /payments/:id",
+  "request": {
+    "method": "GET",
+    "header": [],
+    "url": {
+      "raw": "{{base_url}}/payments/:id",
+      "host": [
+        "{{base_url}}"
+      ],
+      "path": [
+        "payments",
+        ":id"
+      ],
+      "variable": [
+        {
+          "key": "id",
+          "value": "1"
+        }
+      ]
+    },
+    "description": "",
+    "auth": {
+      "type": "bearer",
+      "bearer": [
+        {
+          "key": "token",
+          "value": "{{token}}",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "response": [
+    {
+      "name": "200 200",
+      "originalRequest": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/payments/:id",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "payments",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
+          ]
+        },
+        "description": "",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "status": "200",
+      "code": 200,
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": "{}",
+      "_postman_previewlanguage": "json"
+    }
+  ]
+}

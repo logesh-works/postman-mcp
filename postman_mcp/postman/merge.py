@@ -115,6 +115,11 @@ def compute_diff(
     """Compute the planned change for one route without mutating."""
     existing = find_item(collection, route.key)
     low_conf = bool(route.body and route.body.low_confidence)
+    table_cells = dict(
+        auth=_auth_cell(route),
+        body_name=_body_cell(route),
+        response_name=_response_cell(route),
+    )
     if existing is None:
         return RequestDiff(
             change=ChangeType.NEW,
@@ -124,6 +129,7 @@ def compute_diff(
             source=route.source,
             lines=_new_lines(built_item, route),
             low_confidence=low_conf,
+            **table_cells,
         )
 
     _, _, current = existing
@@ -137,7 +143,28 @@ def compute_diff(
         lines=_modified_lines(built_item, route),
         preserved=preserved,
         low_confidence=low_conf,
+        **table_cells,
     )
+
+
+def _auth_cell(route: RouteModel) -> str:
+    return "Bearer" if route.auth_required else "—"
+
+
+def _body_cell(route: RouteModel) -> str:
+    if route.body is None:
+        return "N/A"
+    return route.body.name or "Body"
+
+
+def _response_cell(route: RouteModel) -> str:
+    declared_2xx = [r for r in route.responses if 200 <= r.status < 300]
+    if not declared_2xx:
+        return "—"
+    resp = declared_2xx[0]
+    if resp.body and resp.body.name:
+        return resp.body.name
+    return f"{resp.status} {resp.description or ''}".strip()
 
 
 def _preserved_fields(current: dict[str, Any]) -> list[str]:

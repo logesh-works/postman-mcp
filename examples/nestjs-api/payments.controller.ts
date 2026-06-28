@@ -1,4 +1,4 @@
-// Minimal NestJS payments controller — OpenAPI path via @nestjs/swagger.
+// Minimal NestJS payments controller: OpenAPI path via @nestjs/swagger.
 //
 // Postman MCP reads the @Controller/@Post decorators, the DTO (class-validator), and the
 // @UseGuards auth guard. With @nestjs/swagger configured, the generated spec (/api-json)
@@ -7,16 +7,20 @@
 // Scaffold: module/bootstrap wiring is omitted; see the NestJS docs.
 
 import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import { ApiProperty } from "@nestjs/swagger";
 import { IsInt, IsString, Min } from "class-validator";
 
 class CreatePaymentDto {
+  @ApiProperty({ type: Number, example: 4200 })
   @IsInt()
   @Min(1)
   amount: number; // Amount in minor units (cents)
 
+  @ApiProperty({ type: String, default: "USD" })
   @IsString()
   currency: string = "USD"; // ISO 4217 code
 
+  @ApiProperty({ type: String, enum: ["card", "bank", "wallet"] })
   @IsString()
   method: string; // card | bank | wallet
 }

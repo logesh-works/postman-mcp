@@ -25,14 +25,28 @@ postman-mcp init        # detects NestJS; uses /api-json (openapi)
 ```text
 /postman:syncall
 
-SYNC PREVIEW
-+ POST /payments      [new] [openapi]
-+ GET  /payments/{id} [new] [openapi]
+| Status | Method | Route | Target | Auth | Body | Response | Source |
+|---|---|---|---|---|---|---|---|
+| [NEW] | POST | /payments | Root Collection | Bearer | CreatePaymentDto | 201 | [openapi] |
+| [NEW] | GET | /payments/{id} | Root Collection | Bearer | N/A | 200 | [openapi] |
 
 Write? [y / n]
 ```
+
+The `Response` column shows the status code rather than a type name, because this
+controller has no `@ApiResponse({ type: ... })` decorator. Add one if you want the spec
+(and the diff) to carry a named response shape instead.
 
 !!! note
     Without a spec, the code path uses **heuristic TypeScript parsing** (no Python TS AST)
     and may miss decorators spread across files. Prefer the `@nestjs/swagger` OpenAPI path.
     See the [NestJS guide](../../docs/frameworks/nestjs.md).
+
+## Generated output
+
+[`expected-output/`](expected-output/) holds the real Collection v2.1 items the **code
+path** produces for this controller (one file per route). Useful for seeing what the
+TypeScript-heuristic fallback yields when no spec is present.
+[`post-payments.item.json`](expected-output/post-payments.item.json) shows the
+`CreatePaymentDto` fields resolved correctly even though one is decorated with a
+nested-brace `@ApiProperty({ ... })`, which used to truncate DTO parsing.

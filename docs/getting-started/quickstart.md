@@ -1,7 +1,7 @@
 # Quickstart
 
-From `pip install` to a populated Postman collection in under five minutes — with no
-manual config editing.
+This gets you from `pip install` to a populated Postman collection. No manual config
+editing required.
 
 ## 1. Install
 
@@ -11,7 +11,7 @@ pip install postman-mcp
 
 ## 2. Set up this project (once)
 
-Run `init` from your project root. It is **idempotent** — safe to re-run.
+Run `init` from your project root. It's idempotent, so it's safe to re-run.
 
 ```bash
 cd my-api-project
@@ -20,17 +20,17 @@ postman-mcp init
 
 `init` walks you through six steps, in order:
 
-1. **Detect the project + input source.** It identifies your framework (FastAPI /
-   Express / Django / NestJS) and looks for an OpenAPI spec. If it finds one, it uses the
+1. **Detect the project and input source.** It identifies your framework (FastAPI,
+   Express, Django, or NestJS) and looks for an OpenAPI spec. If it finds one, it uses the
    [OpenAPI path](../architecture/resolver.md); otherwise it parses your code.
 2. **API-key handshake.** Paste your Postman personal API key. It's validated with
-   `GET /me`. **The key is read in the terminal — never typed into a web form, never sent
-   to Claude.**
+   `GET /me`. **The key is read in the terminal, never typed into a web form and never
+   sent to Claude.**
 3. **Store the key by reference.** The raw key goes into your OS credential store (the
    default); only a pointer (`apiKeyRef`) is written to config. See
    [Configuration](configuration.md) for the env-var and file fallbacks.
 4. **Pick workspace + collection.** Choose the project's collection, or create a new one.
-5. **Write `postman-mcp.json`** at the project root — small, committable, secret-free.
+5. **Write `postman-mcp.json`** at the project root: small, committable, and secret-free.
 6. **Register with Claude Code + install slash commands.** This makes the `/postman:*`
    commands appear.
 
@@ -54,16 +54,38 @@ writes only on confirm.
 
 ### Typical first run
 
-```text
-/postman:syncall          → diff of every route → confirm → collection populated
-```
+Run `/postman:syncall`. You'll see a diff of every route the parser found, then a
+`Write? [y / n]` prompt. Say yes and the collection is populated.
 
 ### Typical daily run
 
+After you write code and commit, run `/postman:syncchanges`. It diffs only the routes
+that changed since your last sync, asks for confirmation, and writes.
+
+### Adding guidance with `--prompt`
+
+Every sync command takes an optional `--prompt`. The plain form works exactly as before:
+
 ```text
-<write code, commit>
-/postman:syncchanges      → diff of only what changed → confirm → done
+/postman:syncapi createPayment
 ```
+
+Add `--prompt` to give **Claude** extra guidance while it prepares the sync — for example
+the persona to adopt, the terminology to use, or the documentation style to favor:
+
+```text
+/postman:syncapi createPayment --prompt "Use fintech terminology"
+```
+
+```text
+/postman:syncchanges --prompt "Generate enterprise-grade documentation"
+```
+
+The prompt is read by Claude, not by the MCP server: it shapes Claude's reasoning and how
+it frames the result, while the engine builds the same deterministic Postman item either
+way. See the [Prompt & skill layer](../architecture/overview.md#prompt-skill-layer) and
+[`examples/prompts/`](https://github.com/logesh-works/postman-mcp/tree/main/examples/prompts)
+for ready-made guidance.
 
 ## Verify the whole setup
 

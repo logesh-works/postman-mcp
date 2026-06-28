@@ -12,12 +12,17 @@ against it and the request it generates. They double as fixtures for understandi
 | [`express-api/`](express-api/) | Express | code parsing | 📝 scaffold |
 | [`nestjs-api/`](nestjs-api/) | NestJS | OpenAPI (@nestjs/swagger) | 📝 scaffold |
 
-Each directory contains:
+For AI-assisted syncing, [`prompts/`](prompts/) holds ready-made `--prompt` guidance
+(fintech, healthcare, enterprise, ecommerce) showing how a prompt steers **Claude** while
+the MCP server stays deterministic.
 
-- **source code** — a minimal but realistic API
-- **`README.md`** — the command to run and the expected output
-- **`expected-output/`** — the diff preview and the generated Collection v2.1 item
-- *(screenshots — see [`assets/`](../assets/README.md) for the capture plan)*
+Each framework directory contains:
+
+- **source code**: a minimal but realistic API
+- **`README.md`**: the command to run and the expected output
+- **`expected-output/`**: the real generated Collection v2.1 item per route, checked in
+  so you can see it without running anything
+- *(screenshots: see [`assets/`](../assets/README.md) for the capture plan)*
 
 ## Running an example
 
@@ -29,5 +34,5 @@ postman-mcp init          # connect this example to a throwaway Postman collecti
 /postman:syncall
 ```
 
-> Use a **throwaway collection** for examples — they're for demonstration, not your real
-> API surface.
+> Use a throwaway collection for examples. They're for demonstration, not your real API
+> surface.

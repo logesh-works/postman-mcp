@@ -65,9 +65,9 @@ def create_env(
 
     if not confirm:
         ctx.client.close()
-        lines = [f"ENV PREVIEW — \"{env_name}\"", ""]
+        lines = [f"ENV PREVIEW: \"{env_name}\"", ""]
         for v in variables:
-            flag = "  (secret — masked, fill manually)" if v["type"] == "secret" else ""
+            flag = "  (secret, masked, fill manually)" if v["type"] == "secret" else ""
             lines.append(f"  {v['key']} = {v['value'] or '<blank>'}{flag}")
         lines.append("")
         lines.append("Create this environment in Postman? [y / n]")

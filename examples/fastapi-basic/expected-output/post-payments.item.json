@@ -1,59 +1,94 @@
 {
-  "name": "Create payment",
+  "name": "POST /payments",
   "request": {
     "method": "POST",
     "header": [
-      { "key": "Content-Type", "value": "application/json" },
-      { "key": "Authorization", "value": "Bearer {{token}}" }
+      {
+        "key": "Content-Type",
+        "value": "application/json"
+      }
     ],
     "url": {
       "raw": "{{base_url}}/payments",
-      "host": ["{{base_url}}"],
-      "path": ["payments"]
+      "host": [
+        "{{base_url}}"
+      ],
+      "path": [
+        "payments"
+      ]
     },
+    "description": "Create a new payment.\n\nCharges the given amount and returns the created payment record.",
     "body": {
       "mode": "raw",
-      "raw": "{\n  \"amount\": 4200,\n  \"currency\": \"USD\",\n  \"method\": \"card\"\n}",
-      "options": { "raw": { "language": "json" } }
+      "raw": "{\n  \"amount\": 4200,\n  \"currency\": \"USD\",\n  \"method\": \"string\"\n}",
+      "options": {
+        "raw": {
+          "language": "json"
+        }
+      }
     },
-    "description": "Create a new payment.\n\nCharges the given amount and returns the created payment record."
+    "auth": {
+      "type": "bearer",
+      "bearer": [
+        {
+          "key": "token",
+          "value": "{{token}}",
+          "type": "string"
+        }
+      ]
+    }
   },
   "response": [
     {
-      "name": "201 Created",
+      "name": "201 201",
+      "originalRequest": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/payments",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "payments"
+          ]
+        },
+        "description": "Create a new payment.\n\nCharges the given amount and returns the created payment record.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 4200,\n  \"currency\": \"USD\",\n  \"method\": \"string\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "status": "201",
       "code": 201,
-      "status": "Created",
-      "header": [{ "key": "Content-Type", "value": "application/json" }],
-      "body": "{\n  \"id\": \"pay_abc123\",\n  \"amount\": 4200,\n  \"currency\": \"USD\",\n  \"status\": \"succeeded\",\n  \"created_at\": \"2026-06-27T10:00:00Z\"\n}"
-    },
-    {
-      "name": "401 Unauthorized",
-      "code": 401,
-      "status": "Unauthorized",
-      "body": "{\n  \"detail\": \"Not authenticated\"\n}"
-    },
-    {
-      "name": "422 Unprocessable Entity",
-      "code": 422,
-      "status": "Unprocessable Entity",
-      "body": "{\n  \"detail\": [\n    { \"loc\": [\"body\", \"amount\"], \"msg\": \"value must be > 0\", \"type\": \"value_error\" }\n  ]\n}"
-    }
-  ],
-  "event": [
-    {
-      "listen": "test",
-      "script": {
-        "type": "text/javascript",
-        "exec": [
-          "pm.test('status is 201', function () {",
-          "  pm.response.to.have.status(201);",
-          "});",
-          "pm.test('schema: PaymentResponse', function () {",
-          "  const body = pm.response.json();",
-          "  pm.expect(body).to.have.all.keys('id', 'amount', 'currency', 'status', 'created_at');",
-          "});"
-        ]
-      }
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": "{\n  \"id\": 1,\n  \"amount\": 4200,\n  \"currency\": \"USD\",\n  \"status\": \"active\",\n  \"created_at\": \"2026-06-27T10:00:00Z\"\n}",
+      "_postman_previewlanguage": "json"
     }
   ]
 }

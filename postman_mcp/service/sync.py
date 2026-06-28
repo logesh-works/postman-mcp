@@ -142,7 +142,9 @@ def sync_changes(
     if not files:
         return "No changed files since the last sync — nothing to do."
 
-    result = resolve_routes(ctx.config.config, ctx.project_root)
+    # Narrow the code parse to just the changed files instead of scanning the whole
+    # project then filtering after — the token/work saving for the daily driver.
+    result = resolve_routes(ctx.config.config, ctx.project_root, only_files=files)
     routes = _filter_by_changed_files(result.routes, files)
     if not routes:
         return (
@@ -176,7 +178,7 @@ def _run_sync(
     """Build → diff → (confirm gate) → write. The only path that touches Postman."""
     into_path = into if into is not None else ctx.config.config.defaultInto
     gen_tests = ctx.config.config.generateTests  # owner preference: OFF by default
-    style = ctx.config.config.responseStyle  # "minimal" = success + error
+    style = ctx.config.config.responseStyle  # "single" = one best response (default)
 
     built = [
         (r, build_request_item(r, generate_tests=gen_tests, response_style=style))

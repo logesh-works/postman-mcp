@@ -35,14 +35,16 @@ def build_request_item(
     route: RouteModel,
     *,
     generate_tests: bool = False,
-    response_style: str = "minimal",
+    response_style: str = "single",
     business_tests: bool = False,
 ) -> dict[str, Any]:
     """Assemble the Collection v2.1 item for a route.
 
-    ``response_style="minimal"`` saves one success + one error response; ``"full"`` saves
-    every declared 2xx plus the standard error set. Test-script events are attached only
-    when ``generate_tests`` is true (owner preference: off by default).
+    ``response_style="single"`` (default) saves exactly the one best response — the
+    explicit response model if declared, else the inferred default — and nothing else.
+    ``"minimal"`` adds one generic error alongside it; ``"full"`` saves every declared
+    2xx plus the standard error set. Test-script events are attached only when
+    ``generate_tests`` is true (owner preference: off by default).
     """
     request: dict[str, Any] = {
         "method": route.method.upper(),
@@ -123,27 +125,34 @@ def _body(body: BodyModel) -> dict[str, Any]:
     }
 
 
+def _best_response(route: RouteModel) -> ResponseModel:
+    """Pick the single best response: explicit model → inferred default.
+
+    ``route.responses`` is already populated from whichever source supplied it — an
+    explicit response model (typed code) or an OpenAPI schema — so the first declared
+    2xx already reflects that priority; only a route with no declared response at all
+    falls through to the inferred default.
+    """
+    declared_2xx = [r for r in route.responses if 200 <= r.status < 300]
+    if declared_2xx:
+        return declared_2xx[0]
+    default = 201 if route.method.upper() == "POST" else 200
+    return ResponseModel(status=default, description="Success")
+
+
 def _responses(
-    route: RouteModel, request: dict[str, Any], style: str = "minimal"
+    route: RouteModel, request: dict[str, Any], style: str = "single"
 ) -> list[dict[str, Any]]:
     """Step 5 — saved responses.
 
-    ``minimal`` (default): one success + one error. ``full``: every declared 2xx plus
-    the standard error set.
+    ``single`` (default): exactly the one best response, no error. ``minimal``: one
+    success + one error. ``full``: every declared 2xx plus the standard error set.
     """
-    declared_2xx = [r for r in route.responses if 200 <= r.status < 300]
+    if style == "single":
+        return [_saved_response(route, request, _best_response(route))]
 
     if style == "minimal":
-        saved: list[dict[str, Any]] = []
-        if declared_2xx:
-            saved.append(_saved_response(route, request, declared_2xx[0]))
-        else:
-            default = 201 if route.method.upper() == "POST" else 200
-            saved.append(
-                _saved_response(
-                    route, request, ResponseModel(status=default, description="Success")
-                )
-            )
+        saved: list[dict[str, Any]] = [_saved_response(route, request, _best_response(route))]
         # one representative error response
         saved.append(
             _saved_response(

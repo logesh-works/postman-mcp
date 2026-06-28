@@ -73,8 +73,8 @@ def test_preview_does_not_write(project):
         "create_payment", confirm=False, project_root=project
     )
 
-    assert "SYNC PREVIEW" in out
-    assert "POST /payments" in out
+    assert "| Status |" in out
+    assert "| POST | /payments |" in out
     assert "Write? [y / n]" in out
     assert not put.called  # the safety guarantee
 
@@ -103,7 +103,7 @@ def test_ambiguous_target_lists_candidates(project):
     _mock_get_collection()
     # "payments" matches the path fragment but is not a unique function name
     out = sync_service.sync_api("payments", confirm=False, project_root=project)
-    assert "ambiguous" in out.lower() or "SYNC PREVIEW" in out
+    assert "ambiguous" in out.lower() or "| Status |" in out
 
 
 def test_missing_config_errors(tmp_path):
@@ -132,7 +132,7 @@ def test_sync_all_preview_then_write(project):
         return_value=httpx.Response(200, json={"collection": {}})
     )
     preview = sync_service.sync_all(confirm=False, project_root=project)
-    assert "SYNC PREVIEW" in preview
+    assert "| Status |" in preview
     assert not put.called
 
     written = sync_service.sync_all(confirm=True, project_root=project)
@@ -144,8 +144,8 @@ def test_sync_all_preview_then_write(project):
 def test_sync_target_filters_by_file(project):
     _mock_get_collection()
     out = sync_service.sync_target("-app.py", confirm=False, project_root=project)
-    assert "SYNC PREVIEW" in out
-    assert "POST /payments" in out
+    assert "| Status |" in out
+    assert "| POST | /payments |" in out
 
 
 @respx.mock

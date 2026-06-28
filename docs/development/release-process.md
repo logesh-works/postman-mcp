@@ -1,19 +1,20 @@
 # Release process
 
 Releases are automated. Tagging a GitHub Release triggers a build and a publish to PyPI
-via OIDC trusted publishing — no API token is stored in the repo.
+via OIDC trusted publishing, so no API token needs to be stored in the repo.
 
 ## Versioning
 
-Semantic Versioning. While pre-1.0, minor versions may include breaking changes;
-patch versions are bug fixes only.
+Semantic Versioning, in effect as of `1.0.0`: breaking changes require a major version
+bump; minor versions are additive; patch versions are bug fixes only.
 
 | Version | Milestone |
 |---|---|
-| `0.1.0` | MVP — the kernel works end to end (gated on a real test suite + a live run) |
-| `0.2.0` | Hardening + parser depth |
-| `0.3.0` | CI hook + Newman test loop |
-| `1.0.0` | Stable, documented, supported |
+| `0.1.0` | MVP: the kernel works end to end (tagged, published to PyPI, live-run validated) |
+| `1.0.0` | Adds the Claude-guided `--prompt` layer on top of the proven kernel (current) |
+| `1.1.0` | Hardening and parser depth |
+| `1.2.0` | CI hook and Newman test loop |
+| `1.3.0` | Proven at scale: documented deprecation policy, complete framework guides |
 
 See the [roadmap](../roadmap.md) for what's in each.
 
@@ -21,8 +22,8 @@ See the [roadmap](../roadmap.md) for what's in each.
 
 1. **Green CI on `main`.** All tests pass across the OS × Python matrix.
 2. **Bump the version** in `pyproject.toml` (`project.version`).
-3. **Update `CHANGELOG.md`** — move `## [Unreleased]` items under a new
-   `## [x.y.z] — YYYY-MM-DD` heading; update the compare links at the bottom.
+3. **Update `CHANGELOG.md`.** Move `## [Unreleased]` items under a new
+   `## [x.y.z] - YYYY-MM-DD` heading, then update the compare links at the bottom.
 4. **Commit and tag:**
    ```bash
    git commit -am "Release vX.Y.Z"
@@ -52,5 +53,4 @@ After that, every published Release deploys automatically.
 - [ ] `python -m build && twine check dist/*` clean
 - [ ] `CHANGELOG.md` updated
 - [ ] README badges and quickstart still accurate
-- [ ] A real end-to-end `init` → `syncall` run against a live Postman workspace (for
-      0.1.0, this is a release gate)
+- [ ] A real end-to-end `init` → `syncall` run against a live Postman workspace

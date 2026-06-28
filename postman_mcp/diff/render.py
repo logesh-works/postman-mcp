@@ -1,8 +1,10 @@
 """Render a :class:`SyncPlan` as the diff preview shown in Claude Code.
 
-Every write is preceded by this. Modified requests list anything **preserved**
-(human-owned scripts/examples); each request is tagged with its source
-``[openapi]``/``[code]`` so lower-confidence routes are visible.
+The primary view is a markdown table (``Status | Method | Route | Target |
+Auth | Body | Response | Source``), so the preview can be scanned at a glance
+instead of read line by line. Anything that doesn't fit a cell (low-confidence
+warnings, preserved human-owned fields, skipped files) is listed as a short
+footnote beneath the table.
 """
 
 from __future__ import annotations
@@ -16,27 +18,51 @@ _TAG = {
     ChangeType.UNCHANGED: "[UNCHANGED]",
 }
 
+_HEADER = ("Status", "Method", "Route", "Target", "Auth", "Body", "Response", "Source")
 
-def _render_request(d: RequestDiff) -> str:
-    into = d.into if d.into and d.into != "/" else "(root)"
-    src = f"[{d.source.value}]"
-    conf = "  ⚠ lower confidence" if d.low_confidence else ""
-    header = (
-        f"SYNC PREVIEW — {d.method} {d.path}  →  collection / {into}   "
-        f"{_TAG[d.change]} {src}{conf}"
+
+def _target_cell(into: str) -> str:
+    into = (into or "/").strip("/")
+    return into or "Root Collection"
+
+
+def _row(d: RequestDiff) -> tuple[str, ...]:
+    return (
+        _TAG[d.change],
+        d.method,
+        d.path,
+        _target_cell(d.into),
+        d.auth,
+        d.body_name,
+        d.response_name,
+        f"[{d.source.value}]",
     )
-    lines = [header, ""]
-    lines.extend("  " + ln for ln in d.lines)
-    if d.preserved:
-        lines.append("")
-        lines.append("  Preserved (human-owned): " + ", ".join(d.preserved))
+
+
+def _render_table(rows: list[tuple[str, ...]]) -> str:
+    lines = [
+        "| " + " | ".join(_HEADER) + " |",
+        "|" + "|".join(["---"] * len(_HEADER)) + "|",
+    ]
+    for row in rows:
+        lines.append("| " + " | ".join(row) + " |")
     return "\n".join(lines)
+
+
+def _footnotes(changed: list[RequestDiff]) -> list[str]:
+    notes: list[str] = []
+    for d in changed:
+        if d.low_confidence:
+            notes.append(f"  ⚠ {d.method} {d.path}: lower confidence (body inferred, not from a type)")
+        if d.preserved:
+            notes.append(f"  {d.method} {d.path}, Preserved (human-owned): " + ", ".join(d.preserved))
+    return notes
 
 
 def render_plan(plan: SyncPlan) -> str:
     """Render the full preview for a write-capable command."""
     if not plan.diffs and not plan.skipped:
-        return "Nothing to sync — the collection is already up to date with the code."
+        return "Nothing to sync. The collection is already up to date with the code."
 
     blocks: list[str] = []
     target = plan.collection_name or plan.collection_id
@@ -47,8 +73,12 @@ def render_plan(plan: SyncPlan) -> str:
         )
 
     changed = [d for d in plan.diffs if d.change != ChangeType.UNCHANGED]
-    for d in changed:
-        blocks.append(_render_request(d))
+    if changed:
+        blocks.append(_render_table([_row(d) for d in changed]))
+
+    notes = _footnotes(changed)
+    if notes:
+        blocks.append("\n".join(notes))
 
     if plan.skipped:
         blocks.append(
@@ -70,19 +100,21 @@ def _summary(changed: list[RequestDiff]) -> str:
 
 
 def render_status(plan: SyncPlan) -> str:
-    """Render the read-only drift report for ``status`` — no write prompt."""
+    """Render the read-only drift report for ``status``. No write prompt."""
     if not plan.has_changes and not plan.skipped:
-        return "No drift — Postman matches the code."
-    blocks: list[str] = ["DRIFT CHECK (read-only — nothing will be written)\n"]
-    for d in plan.diffs:
-        if d.change is ChangeType.UNCHANGED:
-            continue
-        into = d.into if d.into and d.into != "/" else "(root)"
-        blocks.append(
-            f"  {_TAG[d.change]:<13} {d.method} {d.path}  →  {into}  [{d.source.value}]"
-        )
-    if plan.skipped:
-        blocks.append("\n  Skipped: " + ", ".join(plan.skipped))
+        return "No drift. Postman matches the code."
+
+    blocks: list[str] = ["DRIFT CHECK (read-only, nothing will be written)"]
     changed = [d for d in plan.diffs if d.change != ChangeType.UNCHANGED]
-    blocks.append("\n" + _summary(changed))
-    return "\n".join(blocks)
+    if changed:
+        blocks.append(_render_table([_row(d) for d in changed]))
+
+    notes = _footnotes(changed)
+    if notes:
+        blocks.append("\n".join(notes))
+
+    if plan.skipped:
+        blocks.append("Skipped: " + ", ".join(plan.skipped))
+
+    blocks.append(_summary(changed))
+    return "\n\n".join(blocks)

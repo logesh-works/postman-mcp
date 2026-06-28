@@ -1,0 +1,80 @@
+{
+  "name": "DELETE /payments/{payment_id}",
+  "request": {
+    "method": "DELETE",
+    "header": [],
+    "url": {
+      "raw": "{{base_url}}/payments/{payment_id}",
+      "host": [
+        "{{base_url}}"
+      ],
+      "path": [
+        "payments",
+        ":payment_id"
+      ],
+      "variable": [
+        {
+          "key": "payment_id",
+          "value": "1"
+        }
+      ]
+    },
+    "description": "Refund (delete) a payment by id.",
+    "auth": {
+      "type": "bearer",
+      "bearer": [
+        {
+          "key": "token",
+          "value": "{{token}}",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "response": [
+    {
+      "name": "200 200",
+      "originalRequest": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/payments/{payment_id}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "payments",
+            ":payment_id"
+          ],
+          "variable": [
+            {
+              "key": "payment_id",
+              "value": "1"
+            }
+          ]
+        },
+        "description": "Refund (delete) a payment by id.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "status": "200",
+      "code": 200,
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": "{}",
+      "_postman_previewlanguage": "json"
+    }
+  ]
+}

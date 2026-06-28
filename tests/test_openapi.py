@@ -38,6 +38,16 @@ def test_response_schema_is_captured(openapi_spec):
     assert {f.name for f in resp.body.fields} == {"id", "status"}
 
 
+def test_body_and_response_take_the_schema_ref_name(openapi_spec):
+    # The diff and the engine show this name in the Body/Response columns, so it must be
+    # the actual component name (PaymentRequest/PaymentResponse), not a generic
+    # "RequestBody"/"Response201" placeholder, whenever the schema is a named $ref.
+    post = next(r for r in routes_from_spec(openapi_spec) if r.method == "POST")
+    assert post.body.name == "PaymentRequest"
+    resp = next(r for r in post.responses if r.status == 201)
+    assert resp.body.name == "PaymentResponse"
+
+
 def test_path_param_from_shared_parameters(openapi_spec):
     get = next(r for r in routes_from_spec(openapi_spec) if r.method == "GET")
     assert [p.name for p in get.path_params] == ["payment_id"]

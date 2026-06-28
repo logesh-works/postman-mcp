@@ -16,11 +16,14 @@ CI on Linux, macOS, and Windows.
 
 ## Release support
 
-While the project is pre-1.0, only the **latest released `0.x` version** receives bug
-and security fixes. Upgrading to the latest patch is the supported path.
+As of `1.0.0`, this project follows Semantic Versioning: the **current and previous minor
+versions** receive security fixes. Upgrading to the latest patch within a supported minor
+is the recommended path.
 
-After `1.0.0`, this project will follow semantic versioning and maintain the current and
-previous minor versions for security fixes. The matrix here will be updated at that time.
+| Version | Status |
+|---|---|
+| `1.0.x` | ✅ Supported |
+| `0.1.x` | ❌ Not supported (superseded by `1.0.0`) |
 
 ## Operating systems
 

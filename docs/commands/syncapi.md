@@ -1,65 +1,86 @@
-# `/postman:syncapi` — sync one API
+# `/postman:syncapi`: sync one API
 
-The **kernel**. The most surgical command: it syncs exactly one API and touches nothing
-else. If pointing at one function and watching a complete request materialize feels like
-magic, everything else is just a different selector over the same engine.
+The most surgical of the five commands. It syncs exactly one route and touches nothing
+else. Every other command is just a different way of picking which routes to hand to the
+same engine that this one calls directly.
 
 ## Usage
 
 ```text
-/postman:syncapi <function_name | "METHOD /route" | "pasted code"> [--into path] [--confirm]
+/postman:syncapi <function_name | "METHOD /route" | "pasted code"> [--into path] [--prompt "…"] [--confirm]
 ```
 
 ## Targeting
 
 You can identify the route three ways:
 
-- **Function name** — `createPayment`
-- **Route string** — `"POST /payments/refund"`
-- **Pasted code** — a snippet of the handler
+- **Function name**, like `create_payment`
+- **Route string**, like `"POST /payments/refund"`
+- **Pasted code**, a snippet of the handler
 
-If the target is ambiguous, the command lists candidates and asks — it never guesses
-silently.
+If the target is ambiguous (the same name matches more than one route), the command
+lists the candidates and asks you to be specific. It never guesses.
 
 ## Flags
 
 | Flag | Effect |
 |---|---|
-| `--into <path>` | Folder inside the collection where the request lands (e.g. `payments`, `auth/oauth`). Missing folders are auto-created. Omitted → `config.defaultInto`. |
-| `--confirm` | Required only when targeting a collection other than the configured default (a safety rail). |
+| `--into <path>` | Folder inside the collection where the request lands, for example `payments` or `auth/oauth`. Missing folders are created automatically. If omitted, falls back to `config.defaultInto`, which defaults to the collection root. No folder gets inferred from the route or function name. |
+| `--prompt "<text>"` | Extra guidance for Claude while it prepares the sync. Consumed by Claude, not the MCP server — see [`--prompt`](#-prompt) below. |
+| `--confirm` | Only required when targeting a collection other than the configured default. A safety rail, not something you'll normally need. |
 
 ## Example
 
 ```text
-/postman:syncapi createPayment --into payments
+/postman:syncapi create_payment --into payments
 ```
 
 ```text
-SYNC PREVIEW — POST /payments  →  collection / payments   [NEW] [openapi]
+| Status | Method | Route | Target | Auth | Body | Response | Source |
+|---|---|---|---|---|---|---|---|
+| [NEW] | POST | /payments | payments | Bearer | PaymentRequest | PaymentResponse | [code] |
 
-+ Request    POST {{base_url}}/payments
-+ Auth       Bearer {{token}}              (from require_auth middleware)
-+ Body       { "amount": 4200, "currency": "USD", "method": "card" }
-+ Responses  201 Created, 400, 401, 422, 500
-+ Tests      status(201) · schema(PaymentResponse) · business(amount > 0)
-+ Examples   1 success, 4 error
+Summary: 1 new · 0 modified · 0 deprecated
 
 Write? [y / n]
 ```
 
 ## What happens, step by step
 
-1. **Resolve target** — the resolver finds `createPayment` → a normalized route model.
-2. **Parse** — extract method, path, body type, auth middleware, response models, docstring.
-3. **Build** — the [engine](../architecture/engine.md) assembles the full request object.
-4. **Read collection** — `GET` the collection, scan its structure for an existing
-   `POST /payments`. Not found → it's new. Resolve `--into payments` to the folder (create
-   if missing).
-5. **Diff** — render the preview in Claude Code.
-6. **Confirm** — the diff is always shown; a non-default collection target needs `--confirm`.
-7. **Write** — merge into the collection JSON, `PUT /collections/{uid}`.
-8. **Record** — update `lastUpdate` in `postman-mcp.json`.
+1. **Resolve the target.** The resolver finds `create_payment` and turns it into a
+   normalized route model.
+2. **Parse.** Extract method, path, body type, auth middleware, response models, and
+   docstring.
+3. **Build.** The [engine](../architecture/engine.md) assembles the full request object.
+4. **Read the collection.** `GET` the collection and scan its structure for an existing
+   `POST /payments`. If it's not found, this is a new request. Resolve `--into payments`
+   to a folder, creating it if it doesn't exist.
+5. **Diff.** Render the preview in Claude Code.
+6. **Confirm.** The diff is always shown. A non-default collection target additionally
+   needs `--confirm`.
+7. **Write.** Merge into the collection JSON and `PUT /collections/{uid}`.
+8. **Record.** Update `lastUpdate` in `postman-mcp.json`. Claude shows the write result
+   and stops; no further analysis or follow-on commentary.
 
-Updating an existing API is identical, except step 4 *finds* the request and step 7 merges
-in place. Its test scripts and manual examples are read from Postman and **preserved** —
-only structural fields change. See the [merge engine](../architecture/merge-engine.md).
+Updating an existing route follows the same steps. Step 4 finds the existing request
+instead of creating one, and step 7 merges into it in place. Its test scripts and manual
+examples are read back from Postman and preserved; only the structural fields change.
+See the [merge engine](../architecture/merge-engine.md).
+
+## `--prompt`
+
+**Purpose:** provide additional guidance to Claude during synchronization — a persona to
+adopt, terminology to use, the example or documentation style to favor.
+
+```text
+/postman:syncapi createPayment --prompt "Act as a Stripe API architect"
+```
+
+**Consumed by:** Claude Code. Claude reads the prompt while preparing the sync and uses it
+to shape its reasoning and how it frames the result.
+
+**Not consumed by:** the resolver, the builder, the merge engine, or the Postman client.
+The MCP tool has no `prompt` parameter; the engine builds the same deterministic Postman
+item whether or not a prompt was given. Prompts influence Claude, never engine structure
+(route matching, identity, auth detection, schemas, response contracts, merge behavior).
+See the [Prompt & skill layer](../architecture/overview.md#prompt-skill-layer).

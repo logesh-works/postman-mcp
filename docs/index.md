@@ -5,74 +5,103 @@ hide:
 
 # Postman MCP
 
-**Sync your API code into Postman collections — body, params, auth, responses, tests, and
-examples — with zero manual fill, straight from Claude Code.**
-
-OpenAPI-first, code-parsing fallback, and a diff before every write.
+**Generate and update Postman requests from your API code, from inside Claude Code.**
 
 [Get started](getting-started/installation.md){ .md-button .md-button--primary }
 [View on GitHub](https://github.com/logesh-works/postman-mcp){ .md-button }
 
 ---
 
-## The problem
+## Why does this exist?
 
-API code and Postman drift apart the moment you ship. Every new route, changed body
-shape, or added error response means going back into Postman by hand — re-typing fields,
-re-writing example data, re-doing test scripts. The work is mechanical, constant, and
-easy to skip, so collections rot. A rotten collection is worse than none: teammates trust
-it, then get burned by a stale endpoint.
+Once you ship an endpoint, the Postman collection for it starts going stale immediately.
+You add a field, Postman doesn't know. You add a new error response, Postman doesn't
+know. Nobody updates Postman by hand consistently, because it's pure busywork: open the
+request, retype the body you already wrote in code, guess at example values, repeat for
+every route.
 
-The code already contains everything Postman needs — routes, types, middleware, comments.
-There's no reason a human should be the copy machine between them.
+The information Postman needs already exists in your code: the route, the request body
+type, the auth dependency, the declared responses. Postman MCP reads that and writes the
+request for you, so the only thing you do by hand is review a diff and say yes.
 
-## What Postman MCP does
+## What it does
 
-It's an [MCP](https://modelcontextprotocol.io) server for Claude Code that reads your
-codebase and writes **fully-populated** Postman requests. Five sync commands cover the
-range from "one route" to "the whole project":
+It's an [MCP](https://modelcontextprotocol.io) server for Claude Code. You run a slash
+command, it builds the Postman request from your code, shows you a diff, and writes only
+if you confirm.
 
 ```text
-/postman:syncapi createPayment --into payments
+/postman:syncapi create_payment --into payments
 ```
 
 ```text
-SYNC PREVIEW — POST /payments  →  collection / payments   [NEW] [openapi]
+| Status | Method | Route | Target | Auth | Body | Response | Source |
+|---|---|---|---|---|---|---|---|
+| [NEW] | POST | /payments | payments | Bearer | PaymentRequest | 201 | [code] |
 
-+ Request    POST {{base_url}}/payments
-+ Auth       Bearer {{token}}              (from require_auth middleware)
-+ Body       { "amount": 4200, "currency": "USD", "method": "card" }
-+ Responses  201 Created, 400, 401, 422, 500
-+ Tests      status(201) · schema(PaymentResponse) · business(amount > 0)
-+ Examples   1 success, 4 error
+Summary: 1 new · 0 modified · 0 deprecated
 
 Write? [y / n]
 ```
 
-## Why developers use it
+There are five sync commands, covering everything from one route to the whole codebase.
+See [Commands](commands/index.md) for all of them, and [The engine](architecture/engine.md)
+for the actual JSON this produces.
 
-- **Zero manual fill.** Body, params, auth headers, every response, examples, and test
-  scaffolds — all generated from your code.
-- **OpenAPI-first.** When your framework emits a spec, one mapper covers FastAPI, NestJS,
-  and Django REST Framework. No spec? It falls back to parsing your code.
-- **Diff before every write.** Nothing reaches Postman until you've seen exactly what
-  changes. There is no skip flag.
-- **Never destroys your work.** Test scripts, manual examples, and edited descriptions are
-  read back and preserved on every sync.
-- **Secrets never touch the repo.** Your Postman API key is stored by reference — OS
-  keychain, env var, or a gitignored file.
-- **Low token cost.** `syncchanges` parses only the files you changed and reads just the
-  collection's basic structure — never a full re-scan.
+## AI-assisted, but deterministic
 
-## The three-action journey
+Postman MCP keeps two layers cleanly separated: **Claude Code is the intelligence layer;
+the MCP server is the deterministic execution layer.** Every sync command takes an
+optional `--prompt` for guidance:
 
-| Step | Where | What |
+```text
+/postman:syncapi createPayment --prompt "Act as a Stripe API architect"
+```
+
+Claude reads the prompt while preparing the sync — persona, terminology, example style —
+then calls the same deterministic tool it always would. The prompt is **consumed by
+Claude, never by the MCP server**: it influences reasoning, not engine structure. The
+server runs no LLM and depends on no AI provider API. See the
+[Prompt & skill layer](architecture/overview.md#prompt-skill-layer).
+
+## How it decides what to read
+
+Two sources feed the same pipeline, picked per route:
+
+- **OpenAPI spec**, when your framework can emit one. FastAPI does this natively; NestJS
+  needs `@nestjs/swagger`; Django REST Framework needs `drf-spectacular`. This is the
+  high-confidence path, since the spec is already typed and validated by the framework.
+- **Direct code parsing**, when there's no spec. This works for all four supported
+  frameworks and is the only path for Express, which has no native type system or spec
+  generator.
+
+Whichever source a route comes from, it gets normalized into the same `RouteModel` before
+the engine ever sees it, so the rest of the pipeline doesn't care where the route came
+from. See [Architecture](architecture/overview.md) for the full breakdown.
+
+## What you get without lifting a finger
+
+- Request body, with realistic example values, built from your Pydantic model / DTO /
+  serializer / JSDoc annotation, whichever your framework gives the parser to work with.
+- Auth headers, when the route sits behind a dependency, guard, or middleware the parser
+  recognizes.
+- One saved response by default (the declared success response), with `minimal` and
+  `full` available if you want error responses saved too.
+- A diff before every write, with no flag to skip it. If a route is ambiguous, you get a
+  list of candidates instead of a guess.
+- Your hand-edited test scripts, examples, and descriptions, preserved on every re-sync
+  instead of overwritten.
+- Your Postman API key stored by reference (OS keychain, env var, or a gitignored file),
+  never written into the repo or the committed config.
+
+## Setup, in three steps
+
+| Step | Where | What happens |
 |---|---|---|
-| `pip install postman-mcp` | terminal | CLI + MCP server + slash commands + engine |
-| `postman-mcp init` | terminal | key handshake, pick workspace + collection, write config, register MCP server, install slash commands |
-| `/postman:*` | Claude Code | sync APIs into the collection |
+| `pip install postman-mcp` | terminal | Installs the CLI, the MCP server, and the slash-command templates. |
+| `postman-mcp init` | terminal | Handshakes your API key, lets you pick a workspace and collection, writes `postman-mcp.json`, registers the MCP server, installs the slash commands. |
+| `/postman:*` | Claude Code | Day-to-day syncing. |
 
-Three actions — **install**, **init**, then **use inside Claude Code**. After init, you
-never touch the terminal again for normal work.
+After `init`, you don't go back to the terminal for normal use.
 
 [Install Postman MCP →](getting-started/installation.md){ .md-button .md-button--primary }

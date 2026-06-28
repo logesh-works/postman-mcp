@@ -1,8 +1,9 @@
-// A minimal Express payments API — the code-parsing example.
+// A minimal Express payments API: the code-parsing example.
 //
 // Express has no native OpenAPI spec and no native types, so Postman MCP uses the
-// code-parsing path. Body inference is best-effort and flagged "lower confidence";
-// the JSDoc @body annotations below help it.
+// code-parsing path. The JSDoc @body tags on the POST route below give the parser an
+// explicit, high-confidence body shape instead of having to infer one from req.body
+// usage alone.
 //
 // Run it:
 //   npm install
@@ -12,7 +13,7 @@ const express = require("express");
 const app = express();
 app.use(express.json());
 
-// Auth middleware — Postman MCP detects this in the chain → Bearer {{token}}
+// Auth middleware. Postman MCP detects this in the chain and adds Bearer {{token}}.
 function requireAuth(req, res, next) {
   if (!req.headers.authorization) {
     return res.status(401).json({ error: "Not authenticated" });

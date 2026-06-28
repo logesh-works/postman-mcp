@@ -1,9 +1,9 @@
 # Example: FastAPI (basic)
 
 A minimal FastAPI payments API with typed Pydantic bodies, an auth dependency, and
-declared responses. This example demonstrates the **code-parsing path** — to force it,
-`init` here without pointing at the live `/openapi.json` (otherwise FastAPI's spec would
-take the higher-confidence OpenAPI path; see [`../fastapi-openapi/`](../fastapi-openapi/)).
+declared responses. This example demonstrates the code-parsing path. To force it, run
+`init` here without pointing at the live `/openapi.json`; otherwise FastAPI's spec would
+take the higher-confidence OpenAPI path (see [`../fastapi-openapi/`](../fastapi-openapi/)).
 
 ## The API
 
@@ -17,7 +17,7 @@ take the higher-confidence OpenAPI path; see [`../fastapi-openapi/`](../fastapi-
 
 ```bash
 pip install -r requirements.txt
-uvicorn app:app --reload          # optional — only needed for the OpenAPI path
+uvicorn app:app --reload          # optional, only needed for the OpenAPI path
 postman-mcp init                  # connect to a throwaway Postman collection
 ```
 
@@ -29,19 +29,16 @@ In Claude Code, in this directory:
 /postman:syncapi create_payment --into payments
 ```
 
-Expected diff preview:
+Actual diff preview:
 
 ```text
-SYNC PREVIEW — POST /payments  →  collection / payments   [NEW] [code]
+| Status | Method | Route | Target | Auth | Body | Response | Source |
+|---|---|---|---|---|---|---|---|
+| [NEW] | POST | /payments | payments | Bearer | PaymentRequest | PaymentResponse | [code] |
 
-+ Request    POST {{base_url}}/payments
-+ Auth       Bearer {{token}}              (from get_current_user dependency)
-+ Body       { "amount": 4200, "currency": "USD", "method": "card" }
-+ Responses  201 Created, 401, 422, 500
-+ Tests      status(201) · schema(PaymentResponse)
-+ Examples   1 success, 3 error
+Summary: 1 new · 0 modified · 0 deprecated
 
-Write? [y / n]
+Write? [y / n]   (nothing writes on n)
 ```
 
 Or sync the whole file at once:
@@ -50,5 +47,8 @@ Or sync the whole file at once:
 /postman:sync -app.py --into payments
 ```
 
-The generated Collection v2.1 item is shown in
-[`expected-output/post-payments.item.json`](expected-output/post-payments.item.json).
+The real generated Collection v2.1 items are checked in under
+[`expected-output/`](expected-output/), one file per route:
+[`post-payments.item.json`](expected-output/post-payments.item.json),
+[`get-payments-payment-id.item.json`](expected-output/get-payments-payment-id.item.json), and
+[`delete-payments-payment-id.item.json`](expected-output/delete-payments-payment-id.item.json).
