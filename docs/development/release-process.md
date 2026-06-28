@@ -11,8 +11,8 @@ bump; minor versions are additive; patch versions are bug fixes only.
 | Version | Milestone |
 |---|---|
 | `0.1.0` | MVP: the kernel works end to end (tagged, published to PyPI, live-run validated) |
-| `1.0.0` | Adds the Claude-guided `--prompt` layer on top of the proven kernel (current) |
-| `1.1.0` | Hardening and parser depth |
+| `1.0.0` | Adds the Claude-guided `--prompt` layer on top of the proven kernel |
+| `1.1.0` | Foundation hardening: extraction-pipeline fixes from auditing real output (current) |
 | `1.2.0` | CI hook and Newman test loop |
 | `1.3.0` | Proven at scale: documented deprecation policy, complete framework guides |
 

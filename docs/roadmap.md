@@ -11,17 +11,22 @@ for all four frameworks, all six commands, diff-before-write, and preservation o
 human-owned fields. Tagged, published to PyPI, and validated with a live run against a
 real Postman workspace.
 
-## 1.0.0: the Claude-guided prompt layer (current)
+## 1.0.0: the Claude-guided prompt layer
 
 Adds `--prompt` on the four sync commands — generation guidance consumed entirely by
 Claude Code, never forwarded to the deterministic MCP server — plus `examples/prompts/`
 and the documented intelligence/execution layer-separation principle. No changes to the
 engine, resolver, or merge logic.
 
-## 1.1.0: hardening and parser depth
+## 1.1.0: foundation hardening (current)
 
-Django `DefaultRouter` resolution, stronger Express and NestJS extraction, `syncchanges`
-file-to-route mapping for pure-OpenAPI sources, and an opt-in business-logic test tier.
+Fixes an audit of real production-shaped output actually found: Express schema
+resolution now works across files and through validation middleware (closing an empty
+`{}` body bug), `init`'s collection picker sticks to what's already configured instead of
+drifting, OpenAPI-first is enforced for a committed spec in any input mode, and
+collection placement is fully deterministic. Django `DefaultRouter` resolution, cross-file
+router-prefix resolution, `syncchanges` file-to-route mapping for pure-OpenAPI sources,
+and the opt-in business-logic test tier are carried forward, unchanged.
 
 ## 1.2.0: CI and the test loop
 

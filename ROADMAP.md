@@ -1,9 +1,10 @@
 # Roadmap
 
 Postman MCP ships in deliberate milestones. `0.1.0` proved the kernel works end to end,
-tagged and published, with a live run against a real Postman workspace. **`1.0.0` adds
-the Claude-guided `--prompt` layer** on top of that proven kernel. Each release after that
-widens coverage.
+tagged and published, with a live run against a real Postman workspace. `1.0.0` added the
+Claude-guided `--prompt` layer on top of that proven kernel. **`1.1.0` hardens the
+extraction pipeline** — fixes found by auditing real production-shaped output. Each
+release after that widens coverage.
 
 > Dates are targets, not promises. The ordering is firm.
 
@@ -24,7 +25,7 @@ config editing.
 - [x] Validated end-to-end run against a live Postman workspace
 - [x] Published to PyPI
 
-## 1.0.0: the Claude-guided prompt layer (current)
+## 1.0.0: the Claude-guided prompt layer
 
 **Goal:** let developers steer a sync in plain English without touching the deterministic
 engine.
@@ -36,13 +37,28 @@ engine.
       ecommerce)
 - [x] Documented intelligence/execution layer separation as a core design principle
 
-## 1.1.0: hardening and parser depth
+## 1.1.0: foundation hardening (current)
 
-**Goal:** trustworthy on real codebases, not just clean ones.
+**Goal:** fix the extraction pipeline defects an audit of real production-shaped output
+actually found — not the originally planned list, the ones that turned out to matter.
+
+- [x] Express schema resolution is project-wide on full scans and recognizes a named
+      schema handed to validation middleware (`validate(employerSchema)`), not just
+      `schema.validate()` in the same file — fixes the empty `{}` body bug
+- [x] `init`'s workspace/collection picker defaults to what's already configured on a
+      re-run, instead of silently drifting to whatever Postman lists first
+- [x] OpenAPI-first is enforced, not just suggested: a committed spec is honored in any
+      `inputMode`, and live spec-endpoint probing now covers Express and Django
+      (`api-docs.json`, `swagger.json`, etc.)
+- [x] Deterministic `--into` placement (explicit → configured → root, nothing inferred)
+      and an explicit completion summary after every successful write
+
+Carried forward, unchanged from the original plan for this milestone:
 
 - [ ] Django `DefaultRouter` / nested `include()` viewset resolution
-- [ ] Stronger Express/NestJS extraction across files (cross-file routers spread over
-      multiple modules, decorator chains)
+- [ ] Cross-file **router-prefix** resolution (`app.use('/api', router)` in one file,
+      routes registered in another) — this release fixed body resolution, not path
+      resolution
 - [ ] `syncchanges` file-to-route mapping for pure-OpenAPI sources (currently falls back
       to syncing everything when there's no code ref to match against)
 - [ ] Business-logic test tier behind a quality gate (opt-in)

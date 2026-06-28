@@ -77,19 +77,36 @@ def parse(
     project_root: Path | str, *, only_files: Optional[list[str]] = None
 ) -> tuple[list[RouteModel], list[str]]:
     root = Path(project_root)
+    files = list(source_files(root, (".js", ".ts", ".mjs", ".cjs"), only_files))
+    texts = [(path, read_text(path)) for path in files]
+
+    # Pass 1 — collect validation-schema definitions across the whole project, so a
+    # route that references an *imported* schema (the common pattern:
+    # ``router.post('/x', validate(employerSchema), handler)`` where ``employerSchema``
+    # lives in another file) still resolves to real fields instead of an empty body.
+    # On incremental syncs (``only_files`` set) we stay file-local to keep token cost
+    # down; the next full sync resolves anything cross-file.
+    project_schema_defs: dict[str, list[str]] = {}
+    if only_files is None:
+        for _, text in texts:
+            project_schema_defs.update(_schema_definitions(text))
+
     routes: list[RouteModel] = []
     skipped: list[str] = []
-    for path in source_files(root, (".js", ".ts", ".mjs", ".cjs"), only_files):
-        text = read_text(path)
+    for path, text in texts:
         rel = path.relative_to(root).as_posix()
-        routes.extend(_parse_file(text, rel))
+        routes.extend(_parse_file(text, rel, project_schema_defs))
     return routes, skipped
 
 
-def _parse_file(text: str, rel: str) -> list[RouteModel]:
+def _parse_file(
+    text: str, rel: str, project_schema_defs: Optional[dict[str, list[str]]] = None
+) -> list[RouteModel]:
     matches = list(_ROUTE.finditer(text))
     global_auth = _has_global_auth_middleware(text)
-    schema_defs = _schema_definitions(text)
+    # File-local definitions win over project-wide ones of the same name.
+    schema_defs = dict(project_schema_defs or {})
+    schema_defs.update(_schema_definitions(text))
 
     routes: list[RouteModel] = []
     for i, match in enumerate(matches):
@@ -129,7 +146,7 @@ def _build_route(
 
     body = None
     if method in ("POST", "PUT", "PATCH"):
-        body = _resolve_body(handler_text, jsdoc, schema_defs)
+        body = _resolve_body(handler_text, rest, jsdoc, schema_defs)
 
     success = 201 if method == "POST" else 200
     return RouteModel(
@@ -145,10 +162,17 @@ def _build_route(
 
 
 def _resolve_body(
-    handler_text: str, jsdoc: str | None, schema_defs: dict[str, list[str]]
+    handler_text: str,
+    rest: str,
+    jsdoc: str | None,
+    schema_defs: dict[str, list[str]],
 ) -> BodyModel:
-    """Trust order: validated schema → JSDoc ``@body`` tags → inferred usage."""
-    schema_fields = _schema_body_fields(handler_text, schema_defs)
+    """Trust order: validated schema → JSDoc ``@body`` tags → inferred usage.
+
+    Schema detection looks at both the route registration (``rest`` — where validation
+    middleware like ``validate(employerSchema)`` lives) and the handler body.
+    """
+    schema_fields = _schema_body_fields(rest + "\n" + handler_text, schema_defs)
     if schema_fields:
         fields = [BodyField(name=n, required=True) for n in schema_fields]
         return BodyModel(name="RequestBody", fields=fields, low_confidence=False)
@@ -278,11 +302,24 @@ def _inline_schema_fields(handler_text: str) -> list[str] | None:
     return None
 
 
-def _schema_body_fields(handler_text: str, schema_defs: dict[str, list[str]]) -> list[str] | None:
-    inline = _inline_schema_fields(handler_text)
+def _schema_body_fields(text: str, schema_defs: dict[str, list[str]]) -> list[str] | None:
+    """Resolve body fields from a validation schema referenced near the route.
+
+    Three forms, in order: an inline ``Joi.object({...}).validate(...)`` literal; a named
+    schema called directly (``employerSchema.validate(...)`` / ``.parse(...)``); or a named
+    schema handed to validation middleware (``validate(employerSchema)``,
+    ``celebrate({ body: employerSchema })``, etc.) — matched by the schema name appearing
+    anywhere in the route registration or handler.
+    """
+    inline = _inline_schema_fields(text)
     if inline:
         return inline
+    # Direct .validate()/.parse() on a named schema.
     for name, fields in schema_defs.items():
-        if re.search(rf"\b{re.escape(name)}\s*{_VALIDATE_CALL.pattern}", handler_text):
+        if re.search(rf"\b{re.escape(name)}\s*{_VALIDATE_CALL.pattern}", text):
+            return fields
+    # Named schema passed to a validation middleware/helper.
+    for name, fields in schema_defs.items():
+        if fields and re.search(rf"\b{re.escape(name)}\b", text):
             return fields
     return None

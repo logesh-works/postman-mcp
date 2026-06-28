@@ -12,7 +12,7 @@ from typing import Optional
 
 from postman_mcp.config.store import ProjectConfig
 from postman_mcp.input import openapi as openapi_mod
-from postman_mcp.input.detect import detect_openapi_source
+from postman_mcp.input.detect import detect_committed_spec, detect_openapi_source
 from postman_mcp.models import RouteModel, normalize_path
 
 
@@ -69,8 +69,13 @@ def resolve_routes(
     notes: list[str] = []
     skipped: list[str] = []
 
+    # OpenAPI-first: always honor an explicitly configured spec or a committed spec file
+    # on disk (no network), regardless of inputMode — "if OpenAPI exists, use OpenAPI".
+    # A code-mode project that nonetheless ships an openapi.json should still take the
+    # high-confidence path instead of falling back to regex inference.
     openapi_routes: list[RouteModel] = []
-    if config.inputMode == "openapi" or config.openApiSource:
+    has_committed_spec = detect_committed_spec(project_root) is not None
+    if config.inputMode == "openapi" or config.openApiSource or has_committed_spec:
         openapi_routes, oa_notes = _load_openapi_routes(config, project_root)
         notes.extend(oa_notes)
 

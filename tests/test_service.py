@@ -91,11 +91,27 @@ def test_confirm_writes_via_put(project):
         "create_payment", confirm=True, project_root=project
     )
 
-    assert "✓ Wrote to Postman" in out
+    assert "✓ Sync completed" in out
+    assert "API(s) added" in out
     assert put.called
     sent = json.loads(put.calls.last.request.content)
     # the new request landed in the collection payload
     assert sent["collection"]["item"]
+
+
+def test_resolve_into_precedence():
+    """Issue 10: explicit --into → configured target → root. Nothing inferred."""
+    from postman_mcp.config.store import ProjectConfig
+    from postman_mcp.service.sync import _resolve_into
+
+    # Explicit wins over everything.
+    assert _resolve_into("payments", ProjectConfig(defaultInto="configured")) == "payments"
+    # No explicit → configured non-root target.
+    assert _resolve_into(None, ProjectConfig(defaultInto="configured")) == "configured"
+    # No explicit, configured is root → root.
+    assert _resolve_into(None, ProjectConfig(defaultInto="/")) == "/"
+    # Blank explicit is treated as "not provided".
+    assert _resolve_into("  ", ProjectConfig(defaultInto="/")) == "/"
 
 
 @respx.mock
@@ -136,7 +152,7 @@ def test_sync_all_preview_then_write(project):
     assert not put.called
 
     written = sync_service.sync_all(confirm=True, project_root=project)
-    assert "✓ Wrote to Postman" in written
+    assert "✓ Sync completed" in written
     assert put.called
 
 

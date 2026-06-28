@@ -167,5 +167,5 @@ r/node, and read each subreddit's self-promotion rules first.)*
 - [ ] Social preview image set on the repo
 - [ ] Animated demo embedded in the README
 - [ ] GitHub About and Topics set
-- [ ] README badges all green (CI, PyPI, license, coverage)
+- [ ] README badges all green (CI, PyPI, license, docs)
 - [ ] Post to HN, Reddit, LinkedIn, X (stagger them, engage with replies)

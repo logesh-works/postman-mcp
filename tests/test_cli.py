@@ -9,6 +9,7 @@ import respx
 from typer.testing import CliRunner
 
 from postman_mcp import __version__
+from postman_mcp import cli as cli_module
 from postman_mcp.cli import app
 from postman_mcp.config.store import CONFIG_FILENAME, PostmanMcpConfig
 from postman_mcp.postman.client import BASE_URL
@@ -17,6 +18,82 @@ from postman_mcp.setup.registration import register_mcp_server
 
 runner = CliRunner()
 COLLECTION_UID = "col-123"
+
+
+# --- init: workspace/collection pickers stick to the existing config on a re-run -----
+
+
+class _FakeClient:
+    def __init__(self, items):
+        self._items = items
+
+    def list_workspaces(self):
+        return self._items
+
+    def list_collections(self, workspace_id):
+        return self._items
+
+
+def _capture_default(monkeypatch):
+    captured = {}
+
+    def fake_prompt(text, default=None):
+        captured["default"] = default
+        return default
+
+    monkeypatch.setattr(cli_module.typer, "prompt", fake_prompt)
+    return captured
+
+
+def test_pick_workspace_defaults_to_existing_on_rerun(monkeypatch):
+    workspaces = [{"id": "ws-a", "name": "A"}, {"id": "ws-b", "name": "B"}]
+    client = _FakeClient(workspaces)
+    existing = PostmanMcpConfig()
+    existing.config.workspace = "ws-b"
+    captured = _capture_default(monkeypatch)
+
+    result = cli_module._pick_workspace(client, existing)
+
+    assert captured["default"] == "2"
+    assert result == "ws-b"
+
+
+def test_pick_workspace_defaults_to_first_when_no_existing(monkeypatch):
+    client = _FakeClient([{"id": "ws-a", "name": "A"}])
+    captured = _capture_default(monkeypatch)
+
+    result = cli_module._pick_workspace(client, None)
+
+    assert captured["default"] == "1"
+    assert result == "ws-a"
+
+
+def test_pick_collection_defaults_to_existing_on_rerun(monkeypatch, tmp_path):
+    collections = [
+        {"uid": "col-a", "name": "API Collection"},
+        {"uid": "col-b", "name": "API Collection"},
+    ]
+    client = _FakeClient(collections)
+    existing = PostmanMcpConfig()
+    existing.config.collectionId = "col-b"
+    captured = _capture_default(monkeypatch)
+
+    result = cli_module._pick_collection(client, "ws-1", existing, tmp_path)
+
+    # Must stick to the second "API Collection" (the one already configured), never
+    # silently fall back to index 1 / create a duplicate.
+    assert captured["default"] == "2"
+    assert result == "col-b"
+
+
+def test_pick_collection_defaults_to_first_when_no_existing(monkeypatch, tmp_path):
+    client = _FakeClient([{"uid": "col-a", "name": "API Collection"}])
+    captured = _capture_default(monkeypatch)
+
+    result = cli_module._pick_collection(client, "ws-1", None, tmp_path)
+
+    assert captured["default"] == "1"
+    assert result == "col-a"
 
 
 def test_version_prints_version():

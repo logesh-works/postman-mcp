@@ -12,7 +12,7 @@ import copy
 from pathlib import Path
 from typing import Optional
 
-from postman_mcp.config.store import ConfigError, save_config
+from postman_mcp.config.store import ConfigError, ProjectConfig, save_config
 from postman_mcp.diff.render import render_plan
 from postman_mcp.engine.builder import build_request_item
 from postman_mcp.input.resolver import match_target, resolve_routes
@@ -176,7 +176,7 @@ def _run_sync(
     skipped: Optional[list[str]] = None,
 ) -> str:
     """Build → diff → (confirm gate) → write. The only path that touches Postman."""
-    into_path = into if into is not None else ctx.config.config.defaultInto
+    into_path = _resolve_into(into, ctx.config.config)
     gen_tests = ctx.config.config.generateTests  # owner preference: OFF by default
     style = ctx.config.config.responseStyle  # "single" = one best response (default)
 
@@ -188,9 +188,8 @@ def _run_sync(
     plan = SyncPlan(
         collection_id=ctx.collection_id,
         collection_name=ctx.collection_name,
-        is_default_collection=True,  # MVP always targets the configured collection
         diffs=[
-            merge.compute_diff(ctx.collection, item, route, into_path or "/")
+            merge.compute_diff(ctx.collection, item, route, into_path)
             for route, item in built
         ],
         skipped=skipped or [],
@@ -205,13 +204,6 @@ def _run_sync(
         return preview
 
     # --- write phase ---
-    # Non-default collection guard. Vacuous in MVP (always default).
-    if not plan.is_default_collection and not confirm_collection:
-        ctx.client.close()
-        return (
-            "Refusing to write to a non-default collection without --confirm "
-            "."
-        )
     if not plan.has_changes:
         ctx.client.close()
         return "Nothing to write — already up to date."
@@ -219,7 +211,7 @@ def _run_sync(
     working = copy.deepcopy(ctx.collection)
     new = mod = 0
     for route, item in built:
-        change = merge.apply_route(working, item, route, into_path or "/")
+        change = merge.apply_route(working, item, route, into_path)
         if change is ChangeType.NEW:
             new += 1
         else:
@@ -230,13 +222,46 @@ def _run_sync(
     except (PostmanAuthError, PostmanError) as exc:
         ctx.client.close()
         return f"Write aborted (no partial write): {exc}"
-    finally:
-        pass
 
-    # Record lastUpdate.
+    # Record lastUpdate, then return a single, explicit completion summary so the
+    # operation has an unambiguous end state (Issue 9).
     _record_sync(ctx)
     ctx.client.close()
-    return f"✓ Wrote to Postman: {new} new · {mod} updated request(s)."
+    return _completion_summary(new, mod, into_path)
+
+
+def _resolve_into(into: Optional[str], config: ProjectConfig) -> str:
+    """Deterministic, user-controlled placement (Issue 10).
+
+    Precedence — nothing else:
+      1. Explicit ``--into`` target.
+      2. Configured ``config.defaultInto`` (when set to a real folder).
+      3. The collection root (``"/"``).
+
+    Never infers a folder from the route/file/module name, and never invents collection
+    structure. ``"/"`` means the request lands at the collection root; the merge layer
+    only materializes a folder for an explicit/configured non-root target.
+    """
+    if into is not None and into.strip():
+        return into.strip()
+    configured = (config.defaultInto or "").strip()
+    if configured and configured != "/":
+        return configured
+    return "/"
+
+
+def _completion_summary(new: int, mod: int, into_path: str) -> str:
+    """The explicit end-state summary returned after a successful write."""
+    lines: list[str] = []
+    if new:
+        lines.append(f"✓ {new} API(s) added")
+    if mod:
+        lines.append(f"✓ {mod} API(s) updated")
+    where = "collection root" if into_path == "/" else f'folder "{into_path}"'
+    lines.append(f"✓ Collection updated ({where})")
+    lines.append("✓ lastUpdate recorded")
+    lines.append("✓ Sync completed")
+    return "\n".join(lines)
 
 
 def _record_sync(ctx: SyncContext) -> None:

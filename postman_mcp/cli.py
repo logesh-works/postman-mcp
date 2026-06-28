@@ -27,7 +27,13 @@ from postman_mcp.config.store import (
     load_config,
     save_config,
 )
-from postman_mcp.input.detect import FRAMEWORKS, detect_project
+from postman_mcp.input.detect import (
+    FRAMEWORKS,
+    detect_committed_spec,
+    detect_project,
+    live_spec_candidates,
+    verify_live_spec,
+)
 from postman_mcp.postman.client import PostmanAuthError, PostmanClient, PostmanError
 from postman_mcp.secrets.manager import resolve_api_key, store_api_key
 from postman_mcp.setup.installer import (
@@ -94,7 +100,16 @@ def init(
             f"Could not detect framework. Enter one ({'/'.join(FRAMEWORKS)})",
             default="fastapi",
         )
-    openapi_source = detected.openapi_source
+    # OpenAPI-first: prefer a committed spec, then probe the framework's common live
+    # spec endpoints (Express/FastAPI/NestJS/Django) so a running spec server is used
+    # instead of falling back to code parsing. The probe is best-effort and fast-failing.
+    openapi_source = detect_committed_spec(root)
+    if not openapi_source:
+        probed = verify_live_spec(live_spec_candidates(framework))
+        if probed:
+            openapi_source = probed
+            _echo_ok(f"Found live OpenAPI spec at {probed}")
+    openapi_source = openapi_source or detected.openapi_source
     openapi_source = typer.prompt(
         "OpenAPI spec path/URL (blank = parse code)",
         default=openapi_source or "",
@@ -171,6 +186,16 @@ def init(
     )
 
 
+def _index_of(items: list, key: str, value: Optional[str]) -> Optional[int]:
+    """1-based index of the item whose ``key`` matches ``value``, or ``None``."""
+    if not value:
+        return None
+    for i, item in enumerate(items, 1):
+        if item.get(key) == value:
+            return i
+    return None
+
+
 def _pick_workspace(client: PostmanClient, existing) -> Optional[str]:
     workspaces = client.list_workspaces()
     if not workspaces:
@@ -178,7 +203,10 @@ def _pick_workspace(client: PostmanClient, existing) -> Optional[str]:
     typer.echo("\nWorkspaces:")
     for i, ws in enumerate(workspaces, 1):
         typer.echo(f"  {i}) {ws.get('name')}  ({ws.get('id')})")
-    idx = typer.prompt("Pick a workspace", default="1")
+    # On a re-run, default to whatever workspace is already configured — bare Enter must
+    # keep the existing setup instead of silently switching to index 1.
+    existing_idx = _index_of(workspaces, "id", existing.config.workspace if existing else None)
+    idx = typer.prompt("Pick a workspace", default=str(existing_idx or 1))
     try:
         return workspaces[int(idx) - 1].get("id")
     except (ValueError, IndexError):
@@ -191,7 +219,19 @@ def _pick_collection(client, workspace_id, existing, root) -> str:
     for i, col in enumerate(collections, 1):
         typer.echo(f"  {i}) {col.get('name')}  ({col.get('uid')})")
     typer.echo(f"  n) create a new collection")
-    choice = typer.prompt("Pick the project's collection (or 'n' for new)", default="n")
+    # On a re-run, default to whatever collection is already configured — bare Enter
+    # must keep the existing setup, never silently switch to index 1 or create a
+    # duplicate. Only default to "1"/"n" when there's no existing choice to honor.
+    existing_idx = _index_of(collections, "uid", existing.config.collectionId if existing else None)
+    if existing_idx:
+        default_choice = str(existing_idx)
+    elif collections:
+        default_choice = "1"
+    else:
+        default_choice = "n"
+    choice = typer.prompt(
+        "Pick the project's collection (or 'n' for new)", default=default_choice
+    )
     if choice.strip().lower() == "n":
         name = typer.prompt("New collection name", default="API Collection")
         created = client.create_collection(

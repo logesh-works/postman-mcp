@@ -21,12 +21,26 @@ _SPEC_FILENAMES = (
     "openapi.yml",
     "swagger.json",
     "swagger.yaml",
+    "api-docs.json",
 )
 
-# Well-known live spec endpoints by framework.
-LIVE_SPEC_ENDPOINTS = {
-    "fastapi": "http://localhost:8000/openapi.json",
-    "nestjs": "http://localhost:3000/api-json",
+# Well-known live spec endpoints by framework, in priority order. Express and Django
+# have no single convention, so several common ones are listed; ``init`` probes them
+# and keeps the first that responds with a valid spec. (FastAPI/NestJS serve one each.)
+LIVE_SPEC_ENDPOINTS: dict[str, list[str]] = {
+    "fastapi": ["http://localhost:8000/openapi.json"],
+    "nestjs": ["http://localhost:3000/api-json"],
+    "express": [
+        "http://localhost:3000/api-docs.json",
+        "http://localhost:3000/swagger.json",
+        "http://localhost:3000/openapi.json",
+        "http://localhost:8000/api-docs.json",
+    ],
+    "django": [
+        "http://localhost:8000/api/schema/",
+        "http://localhost:8000/swagger.json",
+        "http://localhost:8000/openapi.json",
+    ],
 }
 
 
@@ -76,14 +90,11 @@ def detect_framework(project_root: Path | str = ".") -> Optional[str]:
     return None
 
 
-def detect_openapi_source(
-    project_root: Path | str = ".",
-    framework: Optional[str] = None,
-) -> Optional[str]:
-    """Find a committed spec file or known live endpoint.
+def detect_committed_spec(project_root: Path | str = ".") -> Optional[str]:
+    """Find a committed spec file on disk. No network. Returns a path or ``None``.
 
-    Returns a path or URL, or ``None`` if no spec is discoverable statically. (Live
-    endpoints are only *suggested* here; the resolver verifies reachability at §9.2.)
+    Kept separate from live-endpoint suggestion so the resolver can always honor a
+    committed spec at sync time without ever touching the network.
     """
     root = Path(project_root)
     for name in _SPEC_FILENAMES:
@@ -95,10 +106,50 @@ def detect_openapi_source(
         matches = list(root.rglob(name))
         if matches:
             return str(matches[0])
-    # Suggest a live endpoint for frameworks that serve one (verified later).
-    if framework in LIVE_SPEC_ENDPOINTS:
-        return LIVE_SPEC_ENDPOINTS[framework]
     return None
+
+
+def live_spec_candidates(framework: Optional[str]) -> list[str]:
+    """Common live spec URLs to probe for a framework (empty if none known)."""
+    return list(LIVE_SPEC_ENDPOINTS.get(framework or "", []))
+
+
+def verify_live_spec(
+    candidates: list[str], *, timeout: float = 1.5
+) -> Optional[str]:
+    """Return the first candidate URL that serves a valid OpenAPI doc, or ``None``.
+
+    Best-effort and fast-failing: a refused connection (server not running) returns
+    immediately, so probing a few localhost URLs at ``init`` time is cheap. Used to make
+    OpenAPI-first actually kick in for frameworks that serve a spec live (Express, etc.)
+    instead of silently falling back to code parsing.
+    """
+    from postman_mcp.input import openapi as openapi_mod
+
+    for url in candidates:
+        try:
+            spec = openapi_mod.load_spec(url, timeout=timeout)
+        except openapi_mod.OpenApiError:
+            continue
+        if isinstance(spec, dict) and spec.get("paths"):
+            return url
+    return None
+
+
+def detect_openapi_source(
+    project_root: Path | str = ".",
+    framework: Optional[str] = None,
+) -> Optional[str]:
+    """Find a committed spec file or *suggest* the first known live endpoint.
+
+    Returns a path or URL, or ``None`` if nothing is discoverable. Committed files win
+    (they need no network); a live URL is only a suggestion ``init`` later probes.
+    """
+    committed = detect_committed_spec(project_root)
+    if committed:
+        return committed
+    candidates = live_spec_candidates(framework)
+    return candidates[0] if candidates else None
 
 
 def detect_project(project_root: Path | str = ".") -> DetectedProject:

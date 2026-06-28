@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/logo/logo.svg" alt="Postman MCP" width="96" height="96">
+<img src="https://raw.githubusercontent.com/logesh-works/postman-mcp/main/assets/logo/logo.svg" alt="Postman MCP" width="96" height="96">
 
 # Postman MCP
 
@@ -10,7 +10,6 @@
 [![Python](https://img.shields.io/pypi/pyversions/postman-mcp.svg)](https://pypi.org/project/postman-mcp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/logesh-works/postman-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/logesh-works/postman-mcp/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/logesh-works/postman-mcp/branch/main/graph/badge.svg)](https://codecov.io/gh/logesh-works/postman-mcp)
 [![Docs](https://img.shields.io/badge/docs-mkdocs-blue.svg)](https://logesh-works.github.io/postman-mcp/)
 
 [Documentation](https://logesh-works.github.io/postman-mcp/) ·
@@ -156,10 +155,14 @@ A few things worth pointing out, because they're not obvious from the JSON:
 
 ## What does not work yet?
 
-`1.0.0` builds on the `0.1.0` MVP — tagged, published to PyPI, and validated with a live
-`init` → `syncall` run against a real Postman workspace. Being upfront about what's still
-a gap:
+`1.1.0` hardens the extraction pipeline on top of the `0.1.0` MVP (tagged, published to
+PyPI, live-run validated) and the `1.0.0` `--prompt` layer. Being upfront about what's
+still a gap:
 
+- **Cross-file router-prefix resolution isn't done.** `app.use('/api', router)` in one
+  file with routes registered in another doesn't resolve the combined path yet — only
+  literal, fully-written paths are correct today. Fixing this needs a module-import
+  graph, not regex.
 - **Django's `DefaultRouter`-registered viewsets aren't resolved by the code parser.**
   Explicit `path('x/', ViewSet.as_view({'get': 'list'}))` mappings work; router-generated
   URLs don't yet. Use the OpenAPI path (`drf-spectacular`) for router-driven projects.
@@ -331,8 +334,9 @@ Details and the specific known limits for each are in the
 
 ## Roadmap
 
-`1.0.0` (current) gets the full kernel working end to end and feature-complete. `1.1.0` is
-about hardening the parsers against real, messier codebases. `1.2.0` adds CI integration.
+`1.0.0` got the full kernel working end to end and feature-complete, plus the
+Claude-guided `--prompt` layer. `1.1.0` (current) hardens the extraction pipeline against
+real, messier codebases. `1.2.0` adds CI integration.
 See [ROADMAP.md](ROADMAP.md) for the actual breakdown and what's explicitly out of scope.
 
 ## Contributing

@@ -22,8 +22,9 @@ is the recommended path.
 
 | Version | Status |
 |---|---|
-| `1.0.x` | ✅ Supported |
-| `0.1.x` | ❌ Not supported (superseded by `1.0.0`) |
+| `1.1.x` | ✅ Supported |
+| `1.0.x` | ✅ Supported (previous minor) |
+| `0.1.x` | ❌ Not supported (superseded) |
 
 ## Operating systems
 

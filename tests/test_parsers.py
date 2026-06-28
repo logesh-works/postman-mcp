@@ -2,9 +2,26 @@
 
 from __future__ import annotations
 
+from postman_mcp.input.detect import detect_committed_spec, live_spec_candidates
 from postman_mcp.input.parsers import express as express_parser
 from postman_mcp.input.parsers import fastapi as fastapi_parser
 from postman_mcp.models import FieldType, InputSource, ParamLocation
+
+
+# --- OpenAPI-first detection -------------------------------------------------------
+
+
+def test_detect_committed_spec_finds_api_docs_json(tmp_path):
+    (tmp_path / "api-docs.json").write_text("{}", encoding="utf-8")
+    assert detect_committed_spec(tmp_path) == str(tmp_path / "api-docs.json")
+
+
+def test_express_has_live_spec_candidates():
+    # Express must offer live spec endpoints so OpenAPI-first can engage for apps that
+    # serve a spec (e.g. /api-docs.json) instead of falling back to code parsing.
+    candidates = live_spec_candidates("express")
+    assert candidates
+    assert any("api-docs.json" in c for c in candidates)
 
 
 # --- FastAPI (AST-based, version-agnostic) -----------------------------------------
@@ -250,6 +267,41 @@ def test_express_inline_zod_schema_is_high_confidence(tmp_path):
     post = routes["POST:/payments"]
     assert post.body.low_confidence is False
     assert {f.name for f in post.body.fields} == {"amount", "currency"}
+
+
+# The dominant real-world pattern: an imported schema handed to validation middleware
+# in the route registration, with the handler body in a controller elsewhere. Before the
+# fix this produced an empty body ({}).
+EXPRESS_MIDDLEWARE_SCHEMA_SRC = """
+const express = require('express');
+const router = express.Router();
+const { employerSchema } = require('./schemas');
+const { registerEmployer } = require('./controllers');
+
+router.post('/register/employer', validate(employerSchema), registerEmployer);
+"""
+
+EXPRESS_SCHEMAS_FILE = """
+const Joi = require('joi');
+const employerSchema = Joi.object({
+  companyName: Joi.string().required(),
+  email: Joi.string().required(),
+  taxId: Joi.string().required(),
+});
+module.exports = { employerSchema };
+"""
+
+
+def test_express_cross_file_middleware_schema_resolves_body(tmp_path):
+    _write(tmp_path, "routes.js", EXPRESS_MIDDLEWARE_SCHEMA_SRC)
+    _write(tmp_path, "schemas.js", EXPRESS_SCHEMAS_FILE)
+    routes = {r.key: r for r in express_parser.parse(tmp_path)[0]}
+    post = routes["POST:/register/employer"]
+    # Schema is imported from another file and only referenced via validate(...) — must
+    # still resolve to the real fields, not an empty body.
+    assert post.body is not None
+    assert post.body.low_confidence is False
+    assert {f.name for f in post.body.fields} == {"companyName", "email", "taxId"}
 
 
 EXPRESS_GLOBAL_AUTH_SRC = """
