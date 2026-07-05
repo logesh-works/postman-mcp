@@ -6,7 +6,8 @@ For payments, ledgers, transfers, and other money-movement APIs.
 
 ```text
 Act as a Stripe API architect. Use fintech terminology, money-as-minor-units
-conventions, and enterprise-grade validation framing. Favor realistic payment examples
+conventions, and strict input-validation framing (amount bounds, currency-code
+checks, idempotency-key format). Favor realistic payment examples
 (amounts, currencies, idempotency keys) and call out auth and error-handling expectations
 when you present the diff.
 ```
@@ -14,7 +15,7 @@ when you present the diff.
 ## Run it
 
 ```text
-/postman:syncapi createPayment --prompt "Act as a Stripe API architect. Use fintech terminology and enterprise-grade validation framing."
+/postman:prompt "Sync createPayment as a Stripe API architect. Use fintech terminology and strict input-validation framing."
 ```
 
 ## What this changes

@@ -13,8 +13,8 @@ Module: `engine/builder.py`, with helpers in `engine/examples.py` and `engine/te
     The MCP server runs **no LLM**, interprets **no natural-language prompts**, generates
     **no AI responses**, and depends on **no Anthropic/OpenAI API**. The same `RouteModel`
     always produces the same Collection item — that's what keeps re-syncs reproducible and
-    diffs stable. Intelligence (including `--prompt`) lives in Claude Code, *above* this
-    engine, never inside it. See the
+    diffs stable. Intelligence (including `/postman:prompt`) lives in Claude Code, *above*
+    this engine, never inside it. See the
     [Prompt & skill layer](overview.md#prompt-skill-layer).
 
 ## The pipeline
@@ -120,6 +120,6 @@ until there's a way to be confident they're asserting the right thing.
 ## Why this is all in one place
 
 The hard, fallible work (turning a route into a usable Postman request) lives in exactly
-one module. The five commands don't each reimplement it; they just decide which routes
-to hand it. Fix a bug in the engine and all five commands get the fix at once, regardless
+one module. None of the sync commands reimplement it; they just decide which routes
+to hand it. Fix a bug in the engine and every command gets the fix at once, regardless
 of whether the route came from OpenAPI or code parsing.

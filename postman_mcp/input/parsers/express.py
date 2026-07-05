@@ -25,6 +25,7 @@ import re
 from pathlib import Path
 from typing import Optional
 
+from postman_mcp.input import structural
 from postman_mcp.input.parsers.base import read_text, source_files
 from postman_mcp.models import (
     BodyField,
@@ -37,11 +38,20 @@ from postman_mcp.models import (
     RouteModel,
 )
 
-# app.get('/path', mw1, handler)  /  router.post("/x", ...)
-_ROUTE = re.compile(
-    r"""\b(?:app|router)\s*\.\s*(get|post|put|patch|delete)\s*\(\s*['"`]([^'"`]+)['"`]([^)]*)\)""",
-    re.IGNORECASE,
+# app.get('/path', mw1, handler)  /  router.post("/x", ...)  /  authRouter.get(...)
+# The router variable can be named anything; _route_regex() builds the alternation from
+# the express()/Router() definitions actually found in the file (plus app/router as a
+# safety net), so routes on arbitrarily-named routers aren't silently missed — and we
+# don't match unrelated `.get(`/`.post(` calls (cache.get, db.get, axios.post, ...).
+_ROUTE_TEMPLATE = (
+    r"""\b(?:{vars})\s*\.\s*(get|post|put|patch|delete)\s*\(\s*['"`]([^'"`]+)['"`]([^)]*)\)"""
 )
+
+
+def _route_regex(text: str) -> "re.Pattern":
+    names = structural.express_router_vars(text) | {"app", "router"}
+    alt = "|".join(re.escape(v) for v in sorted(names, key=len, reverse=True))
+    return re.compile(_ROUTE_TEMPLATE.format(vars=alt), re.IGNORECASE)
 _PATH_PARAM = re.compile(r":([A-Za-z_][A-Za-z0-9_]*)")
 _AUTH_HINTS = ("requireauth", "isauthenticated", "authenticate", "ensureauth", "auth", "protect", "verifytoken")
 
@@ -91,18 +101,29 @@ def parse(
         for _, text in texts:
             project_schema_defs.update(_schema_definitions(text))
 
+    # L1 structural pass: the prefix under which each file's router is mounted
+    # (``app.use('/api/users', require('./routes'))``) — whole-project, since the mount
+    # site lives in a different file than the routes.
+    mount_prefixes = structural.build_express(root)
+
     routes: list[RouteModel] = []
     skipped: list[str] = []
     for path, text in texts:
         rel = path.relative_to(root).as_posix()
-        routes.extend(_parse_file(text, rel, project_schema_defs))
+        prefix = mount_prefixes.get(rel)
+        routes.extend(
+            _parse_file(text, rel, project_schema_defs, prefix.prefix if prefix else "")
+        )
     return routes, skipped
 
 
 def _parse_file(
-    text: str, rel: str, project_schema_defs: Optional[dict[str, list[str]]] = None
+    text: str,
+    rel: str,
+    project_schema_defs: Optional[dict[str, list[str]]] = None,
+    mount_prefix: str = "",
 ) -> list[RouteModel]:
-    matches = list(_ROUTE.finditer(text))
+    matches = list(_route_regex(text).finditer(text))
     global_auth = _has_global_auth_middleware(text)
     # File-local definitions win over project-wide ones of the same name.
     schema_defs = dict(project_schema_defs or {})
@@ -111,7 +132,7 @@ def _parse_file(
     routes: list[RouteModel] = []
     for i, match in enumerate(matches):
         method = match.group(1).upper()
-        route_path = match.group(2)
+        route_path = structural.compose(mount_prefix, match.group(2))
         rest = match.group(3) or ""
         # Bound this route's handler by the next route registration (or EOF) — a
         # reasonable approximation for the flat, sequential style most Express apps use.

@@ -11,10 +11,13 @@ against it and the request it generates. They double as fixtures for understandi
 | [`django-rest-framework/`](django-rest-framework/) | Django REST Framework | OpenAPI (drf-spectacular) | 📝 scaffold |
 | [`express-api/`](express-api/) | Express | code parsing | 📝 scaffold |
 | [`nestjs-api/`](nestjs-api/) | NestJS | OpenAPI (@nestjs/swagger) | 📝 scaffold |
+| [`flask-api/`](flask-api/) | Flask | code parsing | ✅ runnable |
+| [`spring-api/`](spring-api/) | Spring (Boot) | code parsing | 📝 scaffold |
 
-For AI-assisted syncing, [`prompts/`](prompts/) holds ready-made `--prompt` guidance
-(fintech, healthcare, enterprise, ecommerce) showing how a prompt steers **Claude** while
-the MCP server stays deterministic.
+For AI-assisted syncing, [`prompts/`](prompts/) holds ready-made personas for
+[`/postman:prompt`](../docs/commands/prompt.md) (fintech, healthcare, enterprise,
+ecommerce) showing how an instruction steers **Claude** while the MCP server stays
+deterministic.
 
 Each framework directory contains:
 

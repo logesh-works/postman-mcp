@@ -31,6 +31,7 @@ def sync_api(
     into: Optional[str] = None,
     confirm: bool = False,
     confirm_collection: bool = False,
+    overrides: Optional[dict] = None,
     project_root: Path | str = ".",
 ) -> str:
     """Sync ONE API — the kernel."""
@@ -55,7 +56,7 @@ def sync_api(
         )
     return _run_sync(
         ctx, matches, into=into, confirm=confirm,
-        confirm_collection=confirm_collection, notes=result.notes,
+        confirm_collection=confirm_collection, notes=result.notes, overrides=overrides,
     )
 
 
@@ -64,6 +65,7 @@ def sync_all(
     into: Optional[str] = None,
     confirm: bool = False,
     confirm_collection: bool = False,
+    overrides: Optional[dict] = None,
     project_root: Path | str = ".",
 ) -> str:
     """Sync the whole codebase."""
@@ -77,7 +79,7 @@ def sync_all(
     return _run_sync(
         ctx, result.routes, into=into, confirm=confirm,
         confirm_collection=confirm_collection, notes=result.notes,
-        skipped=result.skipped,
+        skipped=result.skipped, overrides=overrides,
     )
 
 
@@ -87,6 +89,7 @@ def sync_target(
     into: Optional[str] = None,
     confirm: bool = False,
     confirm_collection: bool = False,
+    overrides: Optional[dict] = None,
     project_root: Path | str = ".",
 ) -> str:
     """Sync every API in one file / module / directory."""
@@ -103,7 +106,7 @@ def sync_target(
     return _run_sync(
         ctx, routes, into=into, confirm=confirm,
         confirm_collection=confirm_collection, notes=result.notes,
-        skipped=result.skipped,
+        skipped=result.skipped, overrides=overrides,
     )
 
 
@@ -113,6 +116,7 @@ def sync_changes(
     since: Optional[str] = None,
     confirm: bool = False,
     confirm_collection: bool = False,
+    overrides: Optional[dict] = None,
     project_root: Path | str = ".",
 ) -> str:
     """Sync what changed since the last sync. Daily driver."""
@@ -154,7 +158,7 @@ def sync_changes(
     return _run_sync(
         ctx, routes, into=into_default(ctx), confirm=confirm,
         confirm_collection=confirm_collection, notes=result.notes,
-        skipped=result.skipped,
+        skipped=result.skipped, overrides=overrides,
     )
 
 
@@ -174,6 +178,7 @@ def _run_sync(
     confirm_collection: bool,
     notes: Optional[list[str]] = None,
     skipped: Optional[list[str]] = None,
+    overrides: Optional[dict] = None,
 ) -> str:
     """Build → diff → (confirm gate) → write. The only path that touches Postman."""
     into_path = _resolve_into(into, ctx.config.config)
@@ -181,7 +186,12 @@ def _run_sync(
     style = ctx.config.config.responseStyle  # "single" = one best response (default)
 
     built = [
-        (r, build_request_item(r, generate_tests=gen_tests, response_style=style))
+        (
+            r,
+            build_request_item(
+                r, generate_tests=gen_tests, response_style=style, overrides=overrides
+            ),
+        )
         for r in routes
     ]
 

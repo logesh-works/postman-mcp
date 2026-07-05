@@ -11,8 +11,8 @@ from typing import Optional
 
 from pydantic import BaseModel
 
-# Frameworks supported in the MVP.
-FRAMEWORKS = ("fastapi", "express", "django", "nestjs")
+# Frameworks supported.
+FRAMEWORKS = ("fastapi", "express", "django", "nestjs", "flask", "spring")
 
 # Conventional committed spec filenames, in priority order.
 _SPEC_FILENAMES = (
@@ -72,8 +72,11 @@ def detect_framework(project_root: Path | str = ".") -> Optional[str]:
     py_files = list(root.rglob("*.py"))
     for py in py_files[:200]:  # bound the scan
         text = _read(py)
-        if "fastapi" in text.lower() and ("FastAPI(" in text or "from fastapi" in text):
+        low = text.lower()
+        if "fastapi" in low and ("FastAPI(" in text or "from fastapi" in text):
             return "fastapi"
+        if "flask" in low and ("Flask(" in text or "from flask" in text):
+            return "flask"
 
     # JS/TS signatures
     pkg = root / "package.json"
@@ -83,6 +86,13 @@ def detect_framework(project_root: Path | str = ".") -> Optional[str]:
             return "nestjs"
         if '"express"' in text or "'express'" in text:
             return "express"
+
+    # Java / Spring signatures
+    if (root / "pom.xml").exists() or list(root.rglob("build.gradle")):
+        for java in list(root.rglob("*.java"))[:200]:
+            text = _read(java)
+            if "@RestController" in text or "@SpringBootApplication" in text or "@Controller" in text:
+                return "spring"
 
     # Django without manage.py at root (settings present)
     if list(root.rglob("settings.py")):

@@ -1,0 +1,76 @@
+{
+  "name": "POST /api/payments",
+  "request": {
+    "method": "POST",
+    "header": [
+      {
+        "key": "Content-Type",
+        "value": "application/json"
+      }
+    ],
+    "url": {
+      "raw": "{{base_url}}/api/payments",
+      "host": [
+        "{{base_url}}"
+      ],
+      "path": [
+        "api",
+        "payments"
+      ]
+    },
+    "description": "",
+    "body": {
+      "mode": "raw",
+      "raw": "{\n  \"amount\": 4200,\n  \"currency\": \"USD\"\n}",
+      "options": {
+        "raw": {
+          "language": "json"
+        }
+      }
+    }
+  },
+  "response": [
+    {
+      "name": "201 201",
+      "originalRequest": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/payments",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "payments"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 4200,\n  \"currency\": \"USD\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "status": "201",
+      "code": 201,
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": "{}",
+      "_postman_previewlanguage": "json"
+    }
+  ]
+}

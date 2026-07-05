@@ -7,15 +7,17 @@ write-capable command.
 ## Usage
 
 ```text
-/postman:syncall [--into path] [--prompt "…"]
+/postman:syncall [--into path]
 ```
+
+For free-form instructions (add error responses, headers, a rewritten description, …),
+use [`/postman:prompt`](prompt.md) instead.
 
 ## Flags
 
 | Flag | Effect |
 |---|---|
 | `--into <path>` | Folder inside the collection every synced route lands in. If omitted, falls back to `config.defaultInto`, which defaults to the collection root. There's no automatic per-route folder inference; every route in the run goes to the same target. |
-| `--prompt "<text>"` | Extra guidance for Claude while it prepares the sync. Consumed by Claude, not the MCP server — see [`--prompt`](#-prompt) below. |
 
 ## When to use it
 
@@ -47,20 +49,11 @@ Every route in a run lands in the same target: the collection root by default, o
 each request is tagged `[openapi]` or `[code]` in the diff so you can see at a glance
 which ones came from the lower-confidence path.
 
-## `--prompt`
+## Free-form instructions
 
-**Purpose:** provide additional guidance to Claude during synchronization — a persona to
-adopt, terminology to use, the example or documentation style to favor.
-
-```text
-/postman:syncall --prompt "Use enterprise API documentation style"
-```
-
-**Consumed by:** Claude Code. Claude reads the prompt while preparing the sync and uses it
-to shape its reasoning and how it frames the result. (One prompt applies to the whole run,
-so keep it broad.)
-
-**Not consumed by:** the resolver, the builder, the merge engine, or the Postman client.
-The MCP tool has no `prompt` parameter; the engine builds the same deterministic Postman
-items whether or not a prompt was given. Prompts influence Claude, never engine structure.
-See the [Prompt & skill layer](../architecture/overview.md#prompt-skill-layer).
+`syncall` itself is plain and deterministic. For anything free-form (add error responses,
+headers, a rewritten description), use [`/postman:prompt "<text>"`](prompt.md) — Claude
+drives this same whole-codebase sync under the hood and applies the changes through the
+same diff-then-confirm gate. Because one instruction applies to every route in the run,
+keep it broad (e.g. "add the standard error set to everything"). See the
+[Prompt & skill layer](../architecture/overview.md#prompt-skill-layer).

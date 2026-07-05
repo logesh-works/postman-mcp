@@ -37,6 +37,7 @@ def build_request_item(
     generate_tests: bool = False,
     response_style: str = "single",
     business_tests: bool = False,
+    overrides: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     """Assemble the Collection v2.1 item for a route.
 
@@ -45,6 +46,13 @@ def build_request_item(
     ``"minimal"`` adds one generic error alongside it; ``"full"`` saves every declared
     2xx plus the standard error set. Test-script events are attached only when
     ``generate_tests`` is true (owner preference: off by default).
+
+    ``overrides`` is an optional patch, shaped like the item itself (or a subset of
+    it — e.g. ``{"response": [...]}`` or ``{"request": {"header": [...]}}``), applied
+    on top of the deterministic build via :func:`apply_overrides`. This is how
+    free-form ``/postman:prompt`` instructions (extra error responses, extra headers, an
+    edited description, ...) reach the generated item: Claude translates the instruction
+    into this patch shape rather than the engine trying to interpret prose.
     """
     request: dict[str, Any] = {
         "method": route.method.upper(),
@@ -73,7 +81,54 @@ def build_request_item(
     # 6. Test scripts — only when explicitly enabled.
     if generate_tests:
         item["event"] = [_test_event(route, business_tests)]
-    return item
+    return apply_overrides(item, overrides)
+
+
+def apply_overrides(
+    item: dict[str, Any], overrides: Optional[dict[str, Any]]
+) -> dict[str, Any]:
+    """Merge a free-form patch onto a built item.
+
+    Dicts merge key-by-key (recursively). Lists merge by identity: a patch entry
+    whose ``key`` or ``name`` matches an existing list entry updates that entry in
+    place; anything else is appended. This lets a patch *add* a response/header
+    without the caller having to restate the ones already there, while still
+    allowing it to *edit* an existing one (e.g. tweak the 200 response body) by
+    naming it.
+    """
+    if not overrides:
+        return item
+    return _merge_value(item, overrides)
+
+
+def _merge_value(base: Any, patch: Any) -> Any:
+    if isinstance(base, dict) and isinstance(patch, dict):
+        result = dict(base)
+        for key, value in patch.items():
+            result[key] = _merge_value(result[key], value) if key in result else value
+        return result
+    if isinstance(base, list) and isinstance(patch, list):
+        return _merge_list(base, patch)
+    return patch
+
+
+def _merge_list(base: list[Any], patch: list[Any]) -> list[Any]:
+    result = list(base)
+    for entry in patch:
+        ident_field = None
+        if isinstance(entry, dict):
+            ident_field = "key" if "key" in entry else ("name" if "name" in entry else None)
+        matched = False
+        if ident_field is not None:
+            ident = entry[ident_field]
+            for i, existing in enumerate(result):
+                if isinstance(existing, dict) and existing.get(ident_field) == ident:
+                    result[i] = _merge_value(existing, entry)
+                    matched = True
+                    break
+        if not matched:
+            result.append(entry)
+    return result
 
 
 def _item_name(route: RouteModel) -> str:

@@ -96,10 +96,12 @@ nav:
       - syncchanges: commands/syncchanges.md
       - sync: commands/sync.md
       - syncall: commands/syncall.md
+      - prompt: commands/prompt.md
       - createenv: commands/createenv.md
       - status: commands/status.md
   - Architecture:
       - Overview: architecture/overview.md
+      - Engineering handoff: architecture/handoff.md
       - The engine: architecture/engine.md
       - Input resolver: architecture/resolver.md
       - Merge engine: architecture/merge-engine.md
@@ -109,6 +111,8 @@ nav:
       - Django REST Framework: frameworks/django.md
       - Express: frameworks/express.md
       - NestJS: frameworks/nestjs.md
+      - Flask: frameworks/flask.md
+      - Spring (Boot): frameworks/spring.md
   - Development:
       - Contributing: development/contributing.md
       - Release process: development/release-process.md

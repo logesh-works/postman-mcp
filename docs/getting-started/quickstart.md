@@ -21,8 +21,9 @@ postman-mcp init
 `init` walks you through six steps, in order:
 
 1. **Detect the project and input source.** It identifies your framework (FastAPI,
-   Express, Django, or NestJS) and looks for an OpenAPI spec. If it finds one, it uses the
-   [OpenAPI path](../architecture/resolver.md); otherwise it parses your code.
+   Express, Django, NestJS, Flask, or Spring) and looks for an OpenAPI spec. If it finds
+   one, it uses the [OpenAPI path](../architecture/resolver.md); otherwise it parses
+   your code.
 2. **API-key handshake.** Paste your Postman personal API key. It's validated with
    `GET /me`. **The key is read in the terminal, never typed into a web form and never
    sent to Claude.**
@@ -40,7 +41,7 @@ On success you'll see:
 ✓ Connected to Postman workspace "Acme API" → collection "Acme Backend"
 ✓ Config written to ./postman-mcp.json
 ✓ MCP server registered with Claude Code
-✓ 6 slash commands installed
+✓ 7 slash commands installed
 
 Next: open Claude Code in this project and run
    /postman:syncall          (first full sync)
@@ -62,30 +63,33 @@ Run `/postman:syncall`. You'll see a diff of every route the parser found, then 
 After you write code and commit, run `/postman:syncchanges`. It diffs only the routes
 that changed since your last sync, asks for confirmation, and writes.
 
-### Adding guidance with `--prompt`
+### Natural-language sync with `/postman:prompt`
 
-Every sync command takes an optional `--prompt`. The plain form works exactly as before:
+The plain commands take a target, not prose:
 
 ```text
 /postman:syncapi createPayment
 ```
 
-Add `--prompt` to give **Claude** extra guidance while it prepares the sync — for example
-the persona to adopt, the terminology to use, or the documentation style to favor:
+For anything free-form — a persona, terminology, a documentation style, or concrete
+additions like extra error responses or headers — use
+[`/postman:prompt`](../commands/prompt.md). Claude reads the instruction, picks the right
+tool and target, and applies the changes through the same diff-then-confirm gate:
 
 ```text
-/postman:syncapi createPayment --prompt "Use fintech terminology"
+/postman:prompt "Sync createPayment using fintech terminology"
 ```
 
 ```text
-/postman:syncchanges --prompt "Generate enterprise-grade documentation"
+/postman:prompt "Sync what changed and add the standard error responses"
 ```
 
-The prompt is read by Claude, not by the MCP server: it shapes Claude's reasoning and how
-it frames the result, while the engine builds the same deterministic Postman item either
-way. See the [Prompt & skill layer](../architecture/overview.md#prompt-skill-layer) and
+The instruction is read by Claude, not by the MCP server: Claude turns it into a
+structured `overrides` patch the deterministic engine merges before the diff, so the same
+code + overrides always builds the same item. See the
+[Prompt & skill layer](../architecture/overview.md#prompt-skill-layer) and
 [`examples/prompts/`](https://github.com/logesh-works/postman-mcp/tree/main/examples/prompts)
-for ready-made guidance.
+for ready-made personas.
 
 ## Verify the whole setup
 

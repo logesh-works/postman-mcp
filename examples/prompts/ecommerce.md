@@ -13,7 +13,7 @@ examples, and highlight inventory and payment-status edge cases when you present
 ## Run it
 
 ```text
-/postman:syncapi createOrder --prompt "Act as an ecommerce platform architect. Use Indian ecommerce examples and storefront terminology."
+/postman:prompt "Sync createOrder as an ecommerce platform architect. Use Indian ecommerce examples and storefront terminology."
 ```
 
 ## What this changes

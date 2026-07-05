@@ -42,9 +42,13 @@ through to the next only if the current one finds nothing:
     [diff](../architecture/diff-engine.md#source-labels). The fix is almost always to
     add a JSDoc `@body` tag or adopt a validation library you're probably already using.
 
-    Routing that's spread across files, or built dynamically rather than as flat
-    `app.METHOD(path, handler)` calls, may not be picked up. When that happens, sync the
-    route explicitly with [`/postman:syncapi "POST /path"`](../commands/syncapi.md).
+    Routing spread across files is resolved through a real import graph
+    (`app.use('/prefix', require('./x'))` and `app.use('/prefix', childRouter)` both
+    follow the `require`/`import` specifier to the file that defines the mounted
+    router), not just literal same-file paths. What still isn't traceable is a prefix
+    built at runtime — a computed string, a value read from config — since there's no
+    static value to resolve. When that happens, sync the route explicitly with
+    [`/postman:syncapi "POST /path"`](../commands/syncapi.md).
 
 ## Example
 

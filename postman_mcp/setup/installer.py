@@ -11,8 +11,10 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-# The six in-Claude-Code commands. init/doctor are terminal-only.
-COMMAND_NAMES = ("syncapi", "syncchanges", "sync", "syncall", "createenv", "status")
+# The in-Claude-Code commands. init/doctor are terminal-only.
+COMMAND_NAMES = (
+    "syncapi", "syncchanges", "sync", "syncall", "prompt", "createenv", "status",
+)
 
 _BUNDLED_DIR = Path(__file__).resolve().parent.parent / "commands"
 
@@ -35,6 +37,6 @@ def install_slash_commands(project_root: Path | str = ".") -> list[Path]:
 
 
 def slash_commands_present(project_root: Path | str = ".") -> bool:
-    """Doctor check #5 — all six md files exist under the commands dir."""
+    """Doctor check #5 — every bundled command md file exists under the commands dir."""
     target = commands_dir(project_root)
     return all((target / f"{name}.md").exists() for name in COMMAND_NAMES)

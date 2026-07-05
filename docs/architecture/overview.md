@@ -1,9 +1,11 @@
 # Architecture overview
 
 Postman MCP is a local stdio MCP server (`postman-mcp serve`) that Claude Code launches.
-It exposes one MCP tool per command. The design has two organizing ideas:
+This page covers the original six-command pipeline. A second, separate tool surface
+exists alongside it — see [`docs/architecture/handoff.md`](handoff.md) for what it is and
+why. The design behind the six commands has two organizing ideas:
 
-> The five sync commands are one engine plus five selectors. The engine does the only
+> The sync commands are one engine plus several selectors. The engine does the only
 > hard thing: given a pointer to some code, emit a complete Postman request object.
 > Everything else just decides which code goes in and where it lands.
 
@@ -14,25 +16,26 @@ It exposes one MCP tool per command. The design has two organizing ideas:
 ## The two layers
 
 ```text
-Claude Layer          reasoning · prompt / skill interpretation · domain expertise
+Claude Layer          reasoning · instruction / skill interpretation · domain expertise
     ↓
-Prompt Processing     --prompt is read here, by Claude, and never forwarded onward
+Prompt Processing     /postman:prompt text is read here, by Claude, and never forwarded as
+                       raw text; Claude turns it into a structured `overrides` patch instead
     ↓
-MCP Execution Layer   deterministic: parse · build · diff · merge · write
+MCP Execution Layer   deterministic: parse · build · merge overrides · diff · merge · write
 ```
 
 | Layer | Owns | Does **not** |
 |---|---|---|
-| **Claude Code** (intelligence) | Reasoning, `--prompt` / skill interpretation, framing the diff, domain expertise, follow-up edits | Decide route structure, identity, schemas, or merge outcomes |
-| **Postman MCP** (execution) | Parsing, synchronization, generation, merging, Postman API integration | Run an LLM, interpret natural-language prompts, depend on any AI provider API |
+| **Claude Code** (intelligence) | Reasoning, `/postman:prompt` / skill interpretation, deriving the `overrides` patch, framing the diff, domain expertise, follow-up edits | Decide route identity, perform the Postman write, or run merge-engine logic |
+| **Postman MCP** (execution) | Parsing, synchronization, generation, merging `overrides` onto the built item, Postman API integration | Run an LLM, interpret natural-language prompts, depend on any AI provider API |
 
 ## Components
 
 ```mermaid
 flowchart LR
-    U[You] -- slash command + optional --prompt --> CC[Claude Code]
-    CC -- prompt interpretation --> CC
-    CC -- MCP tool call (no prompt forwarded) --> SVR[Postman MCP Server]
+    U[You] -- slash command (/postman:prompt for free-form) --> CC[Claude Code]
+    CC -- instruction interpretation --> CC
+    CC -- MCP tool call (overrides patch, no raw prose) --> SVR[Postman MCP Server]
     SVR -- diff / results --> CC
     CC -- diff + Write? prompt --> U
     SVR --> R[Input resolver]
@@ -58,31 +61,42 @@ flowchart LR
 
 ## Prompt & skill layer
 
-Every sync command accepts an optional `--prompt "<instructions>"`. This is **consumed by
-Claude, not by the MCP server.**
+Free-form, natural-language sync happens through the [`/postman:prompt`](../commands/prompt.md)
+command. The raw text is **consumed by Claude, not by the MCP server** — but what Claude
+derives from it can still reach the built item, through an explicit, structured channel:
+the `overrides` argument.
 
 ```mermaid
 sequenceDiagram
     participant You
     participant CC as Claude Code
     participant S as MCP server (deterministic)
-    You->>CC: /postman:syncapi createPayment --prompt "Act as a Stripe API architect"
-    Note over CC: Claude reads the prompt and<br/>adjusts its reasoning / framing
-    CC->>S: syncapi(target="createPayment", confirm=false)  // no prompt forwarded
-    S-->>CC: deterministic diff preview
-    CC-->>You: diff (framed per the prompt) ... Write? [y/n]
+    You->>CC: /postman:prompt "add an error response to createPayment"
+    Note over CC: Claude picks the tool/target and derives<br/>an overrides patch (new response entries)
+    CC->>S: syncapi(target="createPayment", overrides={"response": [...]}, confirm=false)
+    S-->>CC: diff preview (deterministic merge of overrides)
+    CC-->>You: diff, including the prompt-driven additions ... Write? [y/n]
 ```
 
-- **Claude is the intelligence layer.** It interprets the prompt — persona, example style,
-  terminology, conventions — and uses it to shape how it prepares and presents the sync.
-- **The MCP server is the execution layer.** Its tools have no `prompt` parameter. The
-  engine builds the same Postman item it would build with no prompt at all.
-- **Prompts influence Claude. Prompts never influence engine structure.** Route matching,
-  identity, auth detection, schemas, response contracts, and merge behavior are computed
-  from your code, deterministically, no matter what the prompt says.
+- **Claude is the intelligence layer.** It interprets the instruction — which tool/target,
+  plus persona, example style, conventions, or concrete content like extra error
+  responses — and decides what, if anything, that implies for the built item.
+- **The MCP server is the execution layer and stays a pure function of its inputs.** Its
+  tools have no `prompt` parameter and run no model; given the same `target` and
+  `overrides`, they always build the same item. `overrides` is data, not instructions — a
+  JSON patch merged onto the item by `engine.builder.apply_overrides` (dicts merge
+  key-by-key, lists merge by `key`/`name`), with no parsing of natural language anywhere
+  in the server.
+- **Route matching, identity, auth detection, and schema inference are unaffected by the
+  instruction or `overrides`.** Those stay 100% derived from your code. `overrides` only
+  ever adjusts the request/response *content* of the item already matched to that route.
+- **The diff still gates every write.** Whatever `overrides` adds shows up in the diff
+  preview before any write, exactly like code-derived content — there's no path for an
+  instruction to write something the user didn't see and confirm.
 
-`--prompt` is the first step of a broader **skill** architecture (see the
-[roadmap](../roadmap.md)); the layer boundary is the same for skills as it is for prompts.
+`/postman:prompt` is the first step of a broader **skill** architecture (see the
+[roadmap](../roadmap.md)); the layer boundary is the same for skills as it is for the
+prompt command.
 
 ## The request lifecycle
 
@@ -132,6 +146,12 @@ These rules are enforced in the service layer, not left to convention:
   vars use Postman's secret type.
 - **Deletes are soft by default.** `--purge` is required for a hard delete.
 - **Writing to a non-default collection requires `--confirm`.**
-- **Recovery is re-sync, not rollback.** Since the diff stops bad writes before they
-  happen and code is the source of truth, fixing a mistaken request is just running the
-  sync again.
+- **Recovery is re-sync, not rollback — for these six commands.** Since the diff stops
+  bad writes before they happen and code is the source of truth, fixing a mistaken
+  request from `syncapi`/`sync`/`syncall`/`syncchanges` is just running the sync again.
+  There's no snapshot/rollback here by design, and that's deliberate: nothing these
+  commands write can't be re-derived from the code that's still sitting right there.
+  The separate submitted-model tool surface (`plan`/`apply`) *can* sync content an LLM
+  contributed that the diff alone doesn't fully vouch for, so it snapshots before every
+  write and has a real `rollback` — see
+  [`docs/architecture/handoff.md`](handoff.md).

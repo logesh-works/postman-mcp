@@ -5,4 +5,4 @@ Public entry points:
 - ``postman_mcp.server`` — the stdio MCP server booted by ``postman-mcp serve``.
 """
 
-__version__ = "1.1.0"
+__version__ = "2.0.0"

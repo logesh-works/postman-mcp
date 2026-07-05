@@ -13,7 +13,7 @@ highlight consent, auth, and audit expectations when you present the diff.
 ## Run it
 
 ```text
-/postman:syncchanges --prompt "Act as a healthcare integration architect. Use clinical terminology and HIPAA-aware framing with synthetic patient data only."
+/postman:prompt "Sync what changed as a healthcare integration architect. Use clinical terminology and HIPAA-aware framing with synthetic patient data only."
 ```
 
 ## What this changes

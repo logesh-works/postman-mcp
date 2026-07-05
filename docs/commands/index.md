@@ -1,9 +1,9 @@
 # Commands
 
-After [`postman-mcp init`](../getting-started/quickstart.md), six slash commands are
-available inside Claude Code. The five sync commands aren't five separate
-implementations: they all build the same complete Postman request through the same
-engine, and differ only in which routes they pick and where the result lands.
+After [`postman-mcp init`](../getting-started/quickstart.md), seven slash commands are
+available inside Claude Code. The sync commands aren't separate implementations: they all
+build the same complete Postman request through the same engine, and differ only in which
+routes they pick and where the result lands.
 
 | Command | One-liner |
 |---|---|
@@ -11,6 +11,7 @@ engine, and differ only in which routes they pick and where the result lands.
 | [`/postman:syncchanges`](syncchanges.md) | Sync what changed since the last sync. The one you'll run most. |
 | [`/postman:sync`](sync.md) | Sync everything in one file, module, or directory. |
 | [`/postman:syncall`](syncall.md) | Sync the whole codebase. Usually a first-run or post-refactor thing. |
+| [`/postman:prompt`](prompt.md) | Sync from a plain-English instruction (add error responses, headers, etc.). |
 | [`/postman:createenv`](createenv.md) | Generate a Postman environment from your code. |
 | [`/postman:status`](status.md) | Show drift without writing anything. |
 
@@ -41,13 +42,15 @@ On `n`, nothing is written. There's no flag to skip this step; see the
 write confirmation or the `n` abort), the command ends. Claude doesn't keep going with
 more analysis or commentary after that.
 
-## Adding guidance with `--prompt`
+## Natural-language sync with `/postman:prompt`
 
-The four sync commands (`syncapi`, `sync`, `syncchanges`, `syncall`) take an optional
-`--prompt "<text>"`. It's guidance for **Claude**, read while it prepares the sync — it's
-**consumed by Claude, not by the MCP server**, which has no `prompt` parameter and stays
-deterministic. Prompts influence Claude's reasoning and framing, never engine structure
-(route matching, identity, auth, schemas, merge). See the
+For free-form instructions — "add error responses to the payments routes", "give every
+endpoint an `X-Request-Id` header", "rewrite the login description" — use
+[`/postman:prompt "<text>"`](prompt.md). Claude reads the instruction, picks the right
+sync tool and target, and expresses the "how" as a structured `overrides` patch the
+engine merges before the diff. The instruction is **consumed by Claude, not by the MCP
+server**, which has no `prompt` parameter and stays deterministic; everything still goes
+through the same diff-then-confirm gate. See the
 [Prompt & skill layer](../architecture/overview.md#prompt-skill-layer).
 
 ## Terminal vs. Claude Code

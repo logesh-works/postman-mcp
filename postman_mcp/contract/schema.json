@@ -1,0 +1,978 @@
+{
+  "$defs": {
+    "Auth": {
+      "properties": {
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "scheme": {
+          "default": "none",
+          "enum": [
+            "bearer",
+            "basic",
+            "apikey",
+            "oauth2",
+            "session",
+            "custom",
+            "none"
+          ],
+          "title": "Scheme",
+          "type": "string"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detail"
+        }
+      },
+      "title": "Auth",
+      "type": "object"
+    },
+    "Body": {
+      "properties": {
+        "content_type": {
+          "default": "application/json",
+          "title": "Content Type",
+          "type": "string"
+        },
+        "schema": {
+          "$ref": "#/$defs/SchemaNode"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        }
+      },
+      "title": "Body",
+      "type": "object"
+    },
+    "Endpoint": {
+      "properties": {
+        "uid": {
+          "title": "Uid",
+          "type": "string"
+        },
+        "service": {
+          "default": "default",
+          "title": "Service",
+          "type": "string"
+        },
+        "method": {
+          "title": "Method",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "identity_evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Identity Evidence",
+          "type": "array"
+        },
+        "operation_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Traced_str_"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Traced_str_"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "description": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Traced_str_"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Traced_list_str__"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "folder": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Traced_str_"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "deprecated": {
+          "$ref": "#/$defs/Traced_bool_"
+        },
+        "path_params": {
+          "items": {
+            "$ref": "#/$defs/Traced_ParamValue_"
+          },
+          "title": "Path Params",
+          "type": "array"
+        },
+        "query_params": {
+          "items": {
+            "$ref": "#/$defs/Traced_ParamValue_"
+          },
+          "title": "Query Params",
+          "type": "array"
+        },
+        "headers": {
+          "items": {
+            "$ref": "#/$defs/Traced_ParamValue_"
+          },
+          "title": "Headers",
+          "type": "array"
+        },
+        "request_body": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Traced_Body_"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "responses": {
+          "items": {
+            "$ref": "#/$defs/Traced_ResponseValue_"
+          },
+          "title": "Responses",
+          "type": "array"
+        },
+        "auth": {
+          "$ref": "#/$defs/Traced_Auth_"
+        },
+        "examples": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Traced_ExamplesValue_"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "versioning": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Traced_VersioningValue_"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mount_chain": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Mount Chain",
+          "type": "array"
+        },
+        "unresolved": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unresolved",
+          "type": "array"
+        }
+      },
+      "required": [
+        "uid",
+        "method",
+        "path"
+      ],
+      "title": "Endpoint",
+      "type": "object"
+    },
+    "EnvVarSuggestion": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "example_value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Example Value"
+        },
+        "secret": {
+          "default": false,
+          "title": "Secret",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "EnvVarSuggestion",
+      "type": "object"
+    },
+    "Evidence": {
+      "description": "One citation: a file/line/symbol span, hashed for anti-hallucination audit.",
+      "properties": {
+        "file": {
+          "title": "File",
+          "type": "string"
+        },
+        "line_start": {
+          "minimum": 1,
+          "title": "Line Start",
+          "type": "integer"
+        },
+        "line_end": {
+          "minimum": 1,
+          "title": "Line End",
+          "type": "integer"
+        },
+        "symbol": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Symbol"
+        },
+        "extraction_method": {
+          "$ref": "#/$defs/ExtractionMethod",
+          "default": "ai_inferred"
+        },
+        "snippet_sha256": {
+          "default": "",
+          "title": "Snippet Sha256",
+          "type": "string"
+        },
+        "quote": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "file",
+        "line_start",
+        "line_end"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "ExamplesValue": {
+      "properties": {
+        "request": {
+          "default": null,
+          "title": "Request"
+        },
+        "responses": {
+          "additionalProperties": true,
+          "title": "Responses",
+          "type": "object"
+        }
+      },
+      "title": "ExamplesValue",
+      "type": "object"
+    },
+    "ExtractionMethod": {
+      "description": "The evidence class \u2014 determines the confidence cap of a fact.\n\nOnly ``AI_INFERRED`` may be asserted by an LLM submission on its own authority;\nevery higher class is *earned* through MCP verification (agreement/audit), never\nsubmitted directly by a non-witness producer. Unknown/malformed values are\ntreated as ``AI_INFERRED`` by the scorer \u2014 never as a higher class.",
+      "enum": [
+        "openapi_verified",
+        "ast_verified",
+        "framework_verified",
+        "multi_source_inferred",
+        "ai_inferred",
+        "weak_inference"
+      ],
+      "title": "ExtractionMethod",
+      "type": "string"
+    },
+    "FieldType": {
+      "description": "Coarse field types used by the example generator.",
+      "enum": [
+        "string",
+        "integer",
+        "number",
+        "boolean",
+        "array",
+        "object",
+        "unknown"
+      ],
+      "title": "FieldType",
+      "type": "string"
+    },
+    "FolderNode": {
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "FolderNode",
+      "type": "object"
+    },
+    "GeneratorInfo": {
+      "properties": {
+        "provider": {
+          "default": "unknown",
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "playbook_version": {
+          "default": "1.0",
+          "title": "Playbook Version",
+          "type": "string"
+        }
+      },
+      "title": "GeneratorInfo",
+      "type": "object"
+    },
+    "ParamValue": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "location": {
+          "enum": [
+            "path",
+            "query",
+            "header"
+          ],
+          "title": "Location",
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/FieldType",
+          "default": "string"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        }
+      },
+      "required": [
+        "name",
+        "location"
+      ],
+      "title": "ParamValue",
+      "type": "object"
+    },
+    "RepoInfo": {
+      "properties": {
+        "root_hint": {
+          "default": ".",
+          "title": "Root Hint",
+          "type": "string"
+        },
+        "commit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Commit"
+        },
+        "dirty": {
+          "default": false,
+          "title": "Dirty",
+          "type": "boolean"
+        }
+      },
+      "title": "RepoInfo",
+      "type": "object"
+    },
+    "ResponseValue": {
+      "properties": {
+        "status": {
+          "title": "Status",
+          "type": "integer"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "content_type": {
+          "default": "application/json",
+          "title": "Content Type",
+          "type": "string"
+        },
+        "schema": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SchemaNode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "ResponseValue",
+      "type": "object"
+    },
+    "SchemaNode": {
+      "description": "A request/response body shape node \u2014 recursive, mirrors ``models.BodyField``.",
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/FieldType",
+          "default": "object"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/SchemaNode"
+          },
+          "title": "Fields",
+          "type": "array"
+        },
+        "field_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Field Name"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "items": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SchemaNode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "enum": {
+          "items": {},
+          "title": "Enum",
+          "type": "array"
+        },
+        "nullable": {
+          "default": false,
+          "title": "Nullable",
+          "type": "boolean"
+        },
+        "example": {
+          "default": null,
+          "title": "Example"
+        },
+        "ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ref"
+        },
+        "constraints": {
+          "additionalProperties": true,
+          "title": "Constraints",
+          "type": "object"
+        }
+      },
+      "title": "SchemaNode",
+      "type": "object"
+    },
+    "Service": {
+      "properties": {
+        "id": {
+          "default": "default",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "root_hint": {
+          "default": ".",
+          "title": "Root Hint",
+          "type": "string"
+        }
+      },
+      "title": "Service",
+      "type": "object"
+    },
+    "Traced_Auth_": {
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/Auth"
+        },
+        "confidence": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "Traced[Auth]",
+      "type": "object"
+    },
+    "Traced_Body_": {
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/Body"
+        },
+        "confidence": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "Traced[Body]",
+      "type": "object"
+    },
+    "Traced_ExamplesValue_": {
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/ExamplesValue"
+        },
+        "confidence": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "Traced[ExamplesValue]",
+      "type": "object"
+    },
+    "Traced_ParamValue_": {
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/ParamValue"
+        },
+        "confidence": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "Traced[ParamValue]",
+      "type": "object"
+    },
+    "Traced_ResponseValue_": {
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/ResponseValue"
+        },
+        "confidence": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "Traced[ResponseValue]",
+      "type": "object"
+    },
+    "Traced_VersioningValue_": {
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/VersioningValue"
+        },
+        "confidence": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "Traced[VersioningValue]",
+      "type": "object"
+    },
+    "Traced_bool_": {
+      "properties": {
+        "value": {
+          "title": "Value",
+          "type": "boolean"
+        },
+        "confidence": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "Traced[bool]",
+      "type": "object"
+    },
+    "Traced_list_str__": {
+      "properties": {
+        "value": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Value",
+          "type": "array"
+        },
+        "confidence": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "Traced[list[str]]",
+      "type": "object"
+    },
+    "Traced_str_": {
+      "properties": {
+        "value": {
+          "title": "Value",
+          "type": "string"
+        },
+        "confidence": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "Traced[str]",
+      "type": "object"
+    },
+    "VersioningValue": {
+      "properties": {
+        "scheme": {
+          "default": "none",
+          "enum": [
+            "path",
+            "header",
+            "query",
+            "none"
+          ],
+          "title": "Scheme",
+          "type": "string"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        }
+      },
+      "title": "VersioningValue",
+      "type": "object"
+    }
+  },
+  "description": "The APIM document root.",
+  "properties": {
+    "apim_version": {
+      "default": "1.0",
+      "title": "Apim Version",
+      "type": "string"
+    },
+    "generator": {
+      "$ref": "#/$defs/GeneratorInfo"
+    },
+    "repo": {
+      "$ref": "#/$defs/RepoInfo"
+    },
+    "services": {
+      "items": {
+        "$ref": "#/$defs/Service"
+      },
+      "title": "Services",
+      "type": "array"
+    },
+    "endpoints": {
+      "items": {
+        "$ref": "#/$defs/Endpoint"
+      },
+      "title": "Endpoints",
+      "type": "array"
+    },
+    "folders": {
+      "items": {
+        "$ref": "#/$defs/FolderNode"
+      },
+      "title": "Folders",
+      "type": "array"
+    },
+    "environments": {
+      "items": {
+        "$ref": "#/$defs/EnvVarSuggestion"
+      },
+      "title": "Environments",
+      "type": "array"
+    },
+    "components": {
+      "additionalProperties": {
+        "$ref": "#/$defs/SchemaNode"
+      },
+      "title": "Components",
+      "type": "object"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Notes",
+      "type": "array"
+    }
+  },
+  "title": "ApiModel",
+  "type": "object"
+}

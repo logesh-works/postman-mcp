@@ -41,4 +41,12 @@ def parse_framework(
         from postman_mcp.input.parsers.nestjs import parse
 
         return parse(project_root, only_files=only_files)
+    if fw == "flask":
+        from postman_mcp.input.parsers.flask import parse
+
+        return parse(project_root, only_files=only_files)
+    if fw == "spring":
+        from postman_mcp.input.parsers.spring import parse
+
+        return parse(project_root, only_files=only_files)
     return [], []

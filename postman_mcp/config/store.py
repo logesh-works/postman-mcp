@@ -21,6 +21,14 @@ class ConfigError(Exception):
     """Raised when config is missing/invalid."""
 
 
+class ConfidencePolicyConfig(BaseModel):
+    """Gate thresholds for the submitted-model pipeline — safe defaults, all overridable."""
+
+    autoThreshold: int = 90
+    flagThreshold: int = 75
+    approvalThreshold: int = 50
+
+
 class ProjectConfig(BaseModel):
     """The ``config`` block of ``postman-mcp.json``."""
 
@@ -36,6 +44,14 @@ class ProjectConfig(BaseModel):
     # "single" = 1 best response only (default) · "minimal" = 1 success + 1 error ·
     # "full" = every declared 2xx + standard errors
     responseStyle: str = "single"
+
+    # Submitted-model pipeline config. Read only by the get_contract/submit_model/
+    # plan/apply tool surface (service/aiplan.py) — the six original commands
+    # (service/sync.py) don't consult any of these.
+    confidencePolicy: ConfidencePolicyConfig = Field(default_factory=ConfidencePolicyConfig)
+    allowLowConfidence: bool = False  # required to sync anything below the approval floor
+    writeProtection: str = "normal"  # "normal" | "readonly" | "approve-all"
+    planTtlHours: float = 24.0
 
 
 class LastUpdate(BaseModel):

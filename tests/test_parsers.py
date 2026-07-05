@@ -320,3 +320,72 @@ def test_express_global_use_middleware_marks_auth(tmp_path):
     routes = {r.key: r for r in express_parser.parse(tmp_path)[0]}
     get = routes["GET:/payments/{param}"]
     assert get.auth_required is True  # no inline middleware — only app.use(requireAuth)
+
+
+# Cross-file mount composition: a router module mounted under a prefix in app.js. The
+# router's own leaf paths must inherit '/api/users'.
+EXPRESS_APP_MOUNT = """
+const express = require('express');
+const app = express();
+const usersRouter = require('./routes/users');
+app.use('/api/users', usersRouter);
+"""
+
+EXPRESS_USERS_ROUTER = """
+const express = require('express');
+const router = express.Router();
+
+router.get('/:id', (req, res) => res.json({}));
+router.post('/', requireAuth, (req, res) => {
+  const { name } = req.body;
+  res.status(201).json({});
+});
+
+module.exports = router;
+"""
+
+
+def test_express_cross_file_mount_prefix_composes(tmp_path):
+    _write(tmp_path, "app.js", EXPRESS_APP_MOUNT)
+    (tmp_path / "routes").mkdir()
+    _write(tmp_path, "routes/users.js", EXPRESS_USERS_ROUTER)
+    keys = {r.key for r in express_parser.parse(tmp_path)[0]}
+    assert "GET:/api/users/{param}" in keys   # was "/{param}" before composition
+    assert "POST:/api/users" in keys           # was "/" before composition
+
+
+def test_express_nested_router_mount(tmp_path):
+    # app.use('/api', apiRouter); apiRouter.use('/users', usersRouter)
+    _write(
+        tmp_path,
+        "app.js",
+        """
+const express = require('express');
+const app = express();
+const apiRouter = require('./api');
+app.use('/api', apiRouter);
+""",
+    )
+    _write(
+        tmp_path,
+        "api.js",
+        """
+const express = require('express');
+const apiRouter = express.Router();
+const usersRouter = require('./users');
+apiRouter.use('/users', usersRouter);
+module.exports = apiRouter;
+""",
+    )
+    _write(
+        tmp_path,
+        "users.js",
+        """
+const express = require('express');
+const router = express.Router();
+router.get('/:id', (req, res) => res.json({}));
+module.exports = router;
+""",
+    )
+    keys = {r.key for r in express_parser.parse(tmp_path)[0]}
+    assert "GET:/api/users/{param}" in keys

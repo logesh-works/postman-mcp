@@ -59,6 +59,51 @@ def test_no_auth_route_omits_auth_and_401(get_payment_route):
     assert 401 not in codes and 403 not in codes
 
 
+def test_overrides_appends_a_new_response(create_payment_route):
+    overrides = {
+        "response": [
+            {"name": "400 Bad Request", "status": "Bad Request", "code": 400, "body": "{}"}
+        ]
+    }
+    item = build_request_item(
+        create_payment_route, response_style="single", overrides=overrides
+    )
+    codes = sorted(r["code"] for r in item["response"])
+    assert codes == [201, 400]
+
+
+def test_overrides_updates_an_existing_response_by_name(create_payment_route):
+    item = build_request_item(create_payment_route, response_style="single")
+    existing_name = item["response"][0]["name"]
+    overrides = {"response": [{"name": existing_name, "body": "{\"patched\": true}"}]}
+    patched = build_request_item(
+        create_payment_route, response_style="single", overrides=overrides
+    )
+    assert len(patched["response"]) == 1
+    assert patched["response"][0]["body"] == '{"patched": true}'
+
+
+def test_overrides_merges_header_by_key_without_duplicating(create_payment_route):
+    overrides = {"request": {"header": [{"key": "Content-Type", "value": "application/xml"}]}}
+    item = build_request_item(create_payment_route, overrides=overrides)
+    content_types = [h for h in item["request"]["header"] if h["key"] == "Content-Type"]
+    assert len(content_types) == 1
+    assert content_types[0]["value"] == "application/xml"
+
+
+def test_overrides_replaces_description_scalar(create_payment_route):
+    item = build_request_item(
+        create_payment_route, overrides={"request": {"description": "Custom doc."}}
+    )
+    assert item["request"]["description"] == "Custom doc."
+
+
+def test_no_overrides_is_a_no_op(create_payment_route):
+    with_none = build_request_item(create_payment_route, overrides=None)
+    without_arg = build_request_item(create_payment_route)
+    assert with_none == without_arg
+
+
 def test_tests_are_off_by_default(create_payment_route):
     item = build_request_item(create_payment_route)
     assert "event" not in item

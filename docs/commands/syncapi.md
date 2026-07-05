@@ -7,8 +7,11 @@ same engine that this one calls directly.
 ## Usage
 
 ```text
-/postman:syncapi <function_name | "METHOD /route" | "pasted code"> [--into path] [--prompt "…"] [--confirm]
+/postman:syncapi <function_name | "METHOD /route" | "pasted code"> [--into path] [--confirm]
 ```
+
+For free-form instructions (add error responses, headers, an edited description, a
+persona, …), use [`/postman:prompt`](prompt.md) instead.
 
 ## Targeting
 
@@ -26,7 +29,6 @@ lists the candidates and asks you to be specific. It never guesses.
 | Flag | Effect |
 |---|---|
 | `--into <path>` | Folder inside the collection where the request lands, for example `payments` or `auth/oauth`. Missing folders are created automatically. If omitted, falls back to `config.defaultInto`, which defaults to the collection root. No folder gets inferred from the route or function name. |
-| `--prompt "<text>"` | Extra guidance for Claude while it prepares the sync. Consumed by Claude, not the MCP server — see [`--prompt`](#-prompt) below. |
 | `--confirm` | Only required when targeting a collection other than the configured default. A safety rail, not something you'll normally need. |
 
 ## Example
@@ -67,20 +69,11 @@ instead of creating one, and step 7 merges into it in place. Its test scripts an
 examples are read back from Postman and preserved; only the structural fields change.
 See the [merge engine](../architecture/merge-engine.md).
 
-## `--prompt`
+## Free-form instructions
 
-**Purpose:** provide additional guidance to Claude during synchronization — a persona to
-adopt, terminology to use, the example or documentation style to favor.
-
-```text
-/postman:syncapi createPayment --prompt "Act as a Stripe API architect"
-```
-
-**Consumed by:** Claude Code. Claude reads the prompt while preparing the sync and uses it
-to shape its reasoning and how it frames the result.
-
-**Not consumed by:** the resolver, the builder, the merge engine, or the Postman client.
-The MCP tool has no `prompt` parameter; the engine builds the same deterministic Postman
-item whether or not a prompt was given. Prompts influence Claude, never engine structure
-(route matching, identity, auth detection, schemas, response contracts, merge behavior).
-See the [Prompt & skill layer](../architecture/overview.md#prompt-skill-layer).
+`syncapi` itself is plain and deterministic — it takes a target, not prose. For anything
+free-form (add error responses, extra headers, an edited description, example values, a
+persona), use [`/postman:prompt "<text>"`](prompt.md). Claude reads the instruction,
+targets this same single-route sync under the hood, and applies the changes through the
+same diff-then-confirm gate. See the
+[Prompt & skill layer](../architecture/overview.md#prompt-skill-layer).

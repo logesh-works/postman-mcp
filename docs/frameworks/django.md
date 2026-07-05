@@ -31,14 +31,20 @@ If a `path(...)` call passes an explicit `.as_view({...})` mapping, the parser o
 generates routes for the methods named in that mapping. It won't invent a `PUT` or
 `DELETE` route just because the viewset class happens to define those actions.
 
+`router.register('users', UserViewSet)` (`DefaultRouter`/`SimpleRouter`) is also
+resolved, and expands into the full standard action set a `ModelViewSet` provides —
+list, create, retrieve, update, partial update, destroy — even when the viewset itself
+doesn't define those methods explicitly.
+
 ## Known limits
 
-!!! warning "Router-registered viewsets"
-    `DefaultRouter`-registered viewsets and nested `include()` chains aren't resolved by
-    the code parser yet; see the [roadmap](../roadmap.md). If your URLs are
-    router-driven rather than explicit `path()` calls, use the OpenAPI path
-    (`drf-spectacular`), which captures them correctly regardless of how the router
-    wires them up.
+Nested `include()` chains that mix router-registered and explicitly-`path()`-declared
+URLs in ways that shadow each other (same prefix, different registration order across
+files) aren't specifically flagged — the parser resolves each registration it finds,
+but doesn't detect ordering conflicts between them. If your URL configuration is
+unusually indirect, the OpenAPI path (`drf-spectacular`) is still the higher-confidence
+option, since it reflects what Django actually serves rather than what the parser infers
+from source.
 
 ## Example
 

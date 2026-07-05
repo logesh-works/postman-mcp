@@ -6,8 +6,11 @@ changed, and you never have to think about git refs to use it.
 ## Usage
 
 ```text
-/postman:syncchanges [--last N] [--since commit|date] [--prompt "…"]
+/postman:syncchanges [--last N] [--since commit|date]
 ```
+
+For free-form instructions (add error responses, headers, a rewritten description, …),
+use [`/postman:prompt`](prompt.md) instead.
 
 ## Default behavior
 
@@ -20,7 +23,6 @@ by your last sync. You never name a git ref yourself.
 | `--last 3` | The last 3 commits. No need to remember `HEAD~3` syntax. |
 | `--since 2026-06-01` | Everything since a date. |
 | `--since a1b2c3d` | Everything since a specific commit. |
-| `--prompt "<text>"` | Extra guidance for Claude while it prepares the sync. Consumed by Claude, not the MCP server — see [`--prompt`](#-prompt) below. |
 
 !!! warning "First run with no marker"
     If there's no `lastUpdate.commit` yet, the command errors gently and suggests
@@ -58,19 +60,10 @@ Write? [y / n]
 Once the write result is shown, the command ends; no further analysis or follow-on
 commentary.
 
-## `--prompt`
+## Free-form instructions
 
-**Purpose:** provide additional guidance to Claude during synchronization — a persona to
-adopt, terminology to use, the example or documentation style to favor.
-
-```text
-/postman:syncchanges --prompt "Generate enterprise-grade documentation"
-```
-
-**Consumed by:** Claude Code. Claude reads the prompt while preparing the sync and uses it
-to shape its reasoning and how it frames the result.
-
-**Not consumed by:** the resolver, the builder, the merge engine, or the Postman client.
-The MCP tool has no `prompt` parameter; the engine builds the same deterministic Postman
-items whether or not a prompt was given. Prompts influence Claude, never engine structure.
-See the [Prompt & skill layer](../architecture/overview.md#prompt-skill-layer).
+`syncchanges` itself is plain and deterministic. For anything free-form (add error
+responses, headers, a rewritten description), use [`/postman:prompt "<text>"`](prompt.md)
+— Claude drives this same changed-routes sync under the hood and applies the changes
+through the same diff-then-confirm gate. See the
+[Prompt & skill layer](../architecture/overview.md#prompt-skill-layer).

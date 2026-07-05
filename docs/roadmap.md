@@ -1,13 +1,14 @@
-# Roadmap
+# Release history and known gaps
 
-The canonical roadmap lives in
+The canonical version of this lives in
 [`ROADMAP.md`](https://github.com/logesh-works/postman-mcp/blob/main/ROADMAP.md) at the
-repo root. Here's the short version of each milestone:
+repo root. This tracks what's shipped and what's known to be missing — not a commitment
+to future architecture.
 
 ## 0.1.0: the kernel works end to end
 
 Setup commands, the deterministic engine, OpenAPI-first resolution, code-parsing fallback
-for all four frameworks, all six commands, diff-before-write, and preservation of
+for four frameworks, all six commands, diff-before-write, and preservation of
 human-owned fields. Tagged, published to PyPI, and validated with a live run against a
 real Postman workspace.
 
@@ -18,49 +19,41 @@ Claude Code, never forwarded to the deterministic MCP server — plus `examples/
 and the documented intelligence/execution layer-separation principle. No changes to the
 engine, resolver, or merge logic.
 
-## 1.1.0: foundation hardening (current)
+## 1.1.0: foundation hardening
 
 Fixes an audit of real production-shaped output actually found: Express schema
 resolution now works across files and through validation middleware (closing an empty
 `{}` body bug), `init`'s collection picker sticks to what's already configured instead of
 drifting, OpenAPI-first is enforced for a committed spec in any input mode, and
-collection placement is fully deterministic. Django `DefaultRouter` resolution, cross-file
-router-prefix resolution, `syncchanges` file-to-route mapping for pure-OpenAPI sources,
-and the opt-in business-logic test tier are carried forward, unchanged.
+collection placement is fully deterministic.
 
-## 1.2.0: CI and the test loop
+## 2.0.0: the submitted-model pipeline (current)
 
-A GitHub Actions / GitLab CI hook, Newman test-runner integration, and a `--check` mode
-for `status` suitable for CI gating.
+Closes the two gaps left open by 1.1.0 — Django `DefaultRouter` resolution and
+cross-file router-prefix resolution (a real import/mount graph, not a leaf-only regex)
+— and adds Flask and Spring (Boot) parsers, bringing framework support to six. Alongside
+that, a second synchronization pipeline: a caller submits a structured API model instead
+of a parser extracting one, and every claimed fact is checked against the actual source
+before anything can sync. The original parsers didn't go away — they now double as the
+independent check a submitted model is verified against, and as the fallback producer
+when no model is submitted. Ships as MCP tools (`get_contract`, `submit_model`,
+`verify_model`, `plan`, `apply`, `snapshot`, `rollback`, `audit`), reachable only as
+direct tool calls today — no slash-command wrapper yet.
 
-## 1.3.0: proven at scale
+## Known gaps
 
-A documented deprecation policy on top of the existing SemVer guarantee, complete
-framework guides, validated success metrics, and a stable parser interface for
-community-contributed frameworks.
+No CI integration (no GitHub Actions/GitLab CI hook, no Newman test-runner, no
+`--check` mode for `status`), no business-logic test tier, no slash command for the
+submitted-model pipeline, and no named `--skill` bundles yet — `--prompt` already lets
+you pass the same kind of guidance free-form. Full list, with no version numbers
+attached, in [`ROADMAP.md`](https://github.com/logesh-works/postman-mcp/blob/main/ROADMAP.md).
 
-## Skills
+## Explicitly out of scope
 
-`--prompt` is **Phase 1** of a skill architecture. Today you can pass Claude free-form
-guidance for a sync; the next phase packages that into reusable, named skills:
-
-```bash
---skill fintech
---skill healthcare
---skill ecommerce
-```
-
-A skill is a curated bundle of prompt guidance that Claude loads before calling the MCP
-tool. The layer boundary holds: **skills are consumed by Claude, never by the MCP
-server**, and the engine stays deterministic. See the
-[Prompt & skill layer](architecture/overview.md#prompt-skill-layer).
-
-## Beyond 1.3
-
-A mock server generated from your schema, pre-commit OWASP checks, and auto-published
-living docs.
+Environment switching, GraphQL sync, gRPC/Protobuf, Postman Flows, real-time
+collaborative editing, and production-traffic drift detection.
 
 ---
 
-Want to influence the roadmap? Open a
+Want to raise something that's missing? Open a
 [feature request](https://github.com/logesh-works/postman-mcp/issues/new?template=feature_request.yml).

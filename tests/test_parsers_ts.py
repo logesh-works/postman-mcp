@@ -134,6 +134,67 @@ def test_django_as_view_mapping_limits_methods_and_strips_converters(tmp_path):
     assert keyed == {("GET", "/payments"), ("POST", "/payments"), ("GET", "/payments/{pk}")}
 
 
+# Django include() composition: the root urlconf mounts an app's urls under a prefix.
+# The old leaf-only reader emitted "/payments"; the full URL is "/api/v1/payments".
+DJANGO_ROOT_URLS = '''
+from django.urls import path, include
+
+urlpatterns = [
+    path('api/v1/', include('app.urls')),
+]
+'''
+
+DJANGO_APP_URLS = '''
+from django.urls import path
+from .views import PaymentViewSet
+
+urlpatterns = [
+    path('payments/', PaymentViewSet.as_view({'get': 'list', 'post': 'create'})),
+]
+'''
+
+
+def test_django_include_composes_prefix(tmp_path):
+    _write(tmp_path, "urls.py", DJANGO_ROOT_URLS)
+    (tmp_path / "app").mkdir()
+    _write(tmp_path, "app/__init__.py", "")
+    _write(tmp_path, "app/urls.py", DJANGO_APP_URLS)
+    _write(tmp_path, "app/views.py", DJANGO_VIEWS)
+    routes, _ = django_parser.parse(tmp_path)
+    keyed = {(r.method, r.path) for r in routes}
+    # composed: 'api/v1/' + 'payments/' → /api/v1/payments — and emitted exactly once
+    assert keyed == {("GET", "/api/v1/payments"), ("POST", "/api/v1/payments")}
+
+
+def test_django_nested_includes(tmp_path):
+    # root → api → app, two levels of include() prefixes
+    _write(
+        tmp_path,
+        "urls.py",
+        """
+from django.urls import path, include
+urlpatterns = [path('api/', include('api.urls'))]
+""",
+    )
+    (tmp_path / "api").mkdir()
+    _write(tmp_path, "api/__init__.py", "")
+    _write(
+        tmp_path,
+        "api/urls.py",
+        """
+from django.urls import path, include
+urlpatterns = [path('v2/', include('app.urls'))]
+""",
+    )
+    (tmp_path / "app").mkdir()
+    _write(tmp_path, "app/__init__.py", "")
+    _write(tmp_path, "app/urls.py", DJANGO_APP_URLS)
+    _write(tmp_path, "app/views.py", DJANGO_VIEWS)
+    routes, _ = django_parser.parse(tmp_path)
+    paths = {r.path for r in routes}
+    assert paths == {"/api/v2/payments"}
+
+
 # --- NestJS ------------------------------------------------------------------------
 
 NEST_SRC = '''
@@ -243,3 +304,25 @@ def test_nestjs_headers_param_is_detected(tmp_path):
     get = routes["GET:/payments/{param}"]
     assert [h.name for h in get.headers] == ["x-api-key"]
     assert get.headers[0].required is True
+
+
+NEST_MAIN = """
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  app.setGlobalPrefix('api/v1');
+  await app.listen(3000);
+}
+bootstrap();
+"""
+
+
+def test_nestjs_global_prefix_composes_with_controller_prefix(tmp_path):
+    # setGlobalPrefix('api/v1') in main.ts + @Controller('payments') + @Get(':id')
+    _write(tmp_path, "main.ts", NEST_MAIN)
+    _write(tmp_path, "payments.controller.ts", NEST_SRC)
+    keys = {r.key for r in nestjs_parser.parse(tmp_path)[0]}
+    assert "POST:/api/v1/payments" in keys
+    assert "GET:/api/v1/payments/{param}" in keys

@@ -31,6 +31,9 @@ from postman_mcp.models import (
 )
 
 _CONTROLLER = re.compile(r"@Controller\(\s*['\"`]?([^'\"`)]*)['\"`]?\s*\)")
+# Global prefix applied to every route, declared once in main.ts:
+# ``app.setGlobalPrefix('api')`` — dropped before, so every Nest route was missing it.
+_GLOBAL_PREFIX = re.compile(r"setGlobalPrefix\(\s*['\"`]([^'\"`]+)['\"`]")
 # http + subpath, optional extra decorators, then methodName(params)
 _METHOD = re.compile(
     r"@(Get|Post|Put|Patch|Delete)\(\s*['\"`]?([^'\"`)]*)['\"`]?\s*\)"
@@ -59,6 +62,15 @@ def parse(
     sources: list[tuple[str, str]] = []
     skipped: list[str] = []
 
+    # Scan the whole project for the global prefix (it lives in main.ts, not the
+    # controller files), so it composes onto every route regardless of only_files scope.
+    global_prefix = ""
+    for path in source_files(root, (".ts",), None):
+        gm = _GLOBAL_PREFIX.search(read_text(path))
+        if gm:
+            global_prefix = gm.group(1).strip("/")
+            break
+
     for path in source_files(root, (".ts",), only_files):
         text = read_text(path)
         rel = path.relative_to(root).as_posix()
@@ -75,7 +87,9 @@ def parse(
 
         for m in _METHOD.finditer(text):
             http, sub_path, between, _fn, params = m.groups()
-            full = "/" + "/".join(p for p in (controller_prefix, sub_path.strip("/")) if p)
+            full = "/" + "/".join(
+                p for p in (global_prefix, controller_prefix, sub_path.strip("/")) if p
+            )
             method = http.upper()
             auth = class_has_guard or "@UseGuards(" in between
             body = None

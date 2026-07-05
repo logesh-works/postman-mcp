@@ -1,17 +1,15 @@
 ---
 description: Sync what changed since the last sync (the daily driver). Diff first, write on confirm.
-argument-hint: [--last N] [--since commit|date] [--prompt "text"]
+argument-hint: [--last N] [--since commit|date]
 ---
 
 Sync everything that changed since the last sync.
 
 Args: `$ARGUMENTS`
 
-If `--prompt "<instructions>"` is present, parse it out first and treat it as
-**additional generation guidance for you while preparing this sync** (persona, example
-style, validation emphasis, conventions). The `--prompt` text is consumed by you, not by
-the MCP server: the `syncchanges` tool is deterministic and has **no `prompt`
-parameter**, so never forward `--prompt` to it.
+For free-form instructions (add error responses, extra headers, a rewritten description,
+...), use **`/postman:prompt "<text>"`** instead. This command is the plain, deterministic
+changed-routes sync.
 
 Do this:
 1. Call the **`postman-mcp` MCP server's `syncchanges` tool**. With no flags it syncs

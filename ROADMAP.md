@@ -1,12 +1,12 @@
-# Roadmap
+# Release history and known gaps
 
-Postman MCP ships in deliberate milestones. `0.1.0` proved the kernel works end to end,
-tagged and published, with a live run against a real Postman workspace. `1.0.0` added the
-Claude-guided `--prompt` layer on top of that proven kernel. **`1.1.0` hardens the
-extraction pipeline** — fixes found by auditing real production-shaped output. Each
-release after that widens coverage.
-
-> Dates are targets, not promises. The ordering is firm.
+This tracks what's shipped and what's known to be missing — it isn't a commitment to
+future architecture. `0.1.0` proved the kernel works end to end. `1.0.0` added the
+Claude-guided `--prompt` layer on top of it. `1.1.0` hardened the extraction pipeline
+against real production-shaped output. `2.0.0`, the current release, adds a second
+pipeline built around a submitted, verified API model instead of only a parser
+extracting one. The "Known gaps" section at the end lists what's still missing today;
+it deliberately doesn't promise version numbers or dates for closing them.
 
 ## 0.1.0: MVP, the kernel works end to end (released 2026-06-27)
 
@@ -37,10 +37,10 @@ engine.
       ecommerce)
 - [x] Documented intelligence/execution layer separation as a core design principle
 
-## 1.1.0: foundation hardening (current)
+## 1.1.0: foundation hardening
 
 **Goal:** fix the extraction pipeline defects an audit of real production-shaped output
-actually found — not the originally planned list, the ones that turned out to matter.
+actually found.
 
 - [x] Express schema resolution is project-wide on full scans and recognizes a named
       schema handed to validation middleware (`validate(employerSchema)`), not just
@@ -53,65 +53,63 @@ actually found — not the originally planned list, the ones that turned out to 
 - [x] Deterministic `--into` placement (explicit → configured → root, nothing inferred)
       and an explicit completion summary after every successful write
 
-Carried forward, unchanged from the original plan for this milestone:
+## 2.0.0: the submitted-model pipeline (current)
 
-- [ ] Django `DefaultRouter` / nested `include()` viewset resolution
-- [ ] Cross-file **router-prefix** resolution (`app.use('/api', router)` in one file,
-      routes registered in another) — this release fixed body resolution, not path
-      resolution
-- [ ] `syncchanges` file-to-route mapping for pure-OpenAPI sources (currently falls back
-      to syncing everything when there's no code ref to match against)
-- [ ] Business-logic test tier behind a quality gate (opt-in)
-- [ ] Richer diff output (field-level `~` rendering, consistent across all commands)
+**Goal:** close the remaining code-parsing gaps, and add a second way to produce a
+syncable API model — one submitted directly instead of extracted by a parser.
 
-## 1.2.0: CI and the test loop
+- [x] Django `DefaultRouter` / `SimpleRouter` viewset resolution, including the full
+      `ModelViewSet` CRUD action set
+- [x] Cross-file router-prefix resolution — a real import/mount graph
+      (`input/structural.py`), not a leaf-only regex, for FastAPI, Flask, and Express.
+      A mount it genuinely can't trace (dynamic import, computed prefix) is reported
+      unresolved rather than guessed at.
+- [x] Flask and Spring (Boot) parsers, at the same accuracy bar as the original four —
+      six frameworks supported in total
+- [x] A second synchronization pipeline: a caller submits a structured API model
+      instead of a parser extracting one, and every claimed fact is checked against
+      the actual source before anything can sync. The original parsers didn't go
+      away — they now run as the independent check a submitted model is verified
+      against, and as the fallback producer when no model is submitted at all. Ships
+      as MCP tools (`get_contract`, `submit_model`, `verify_model`, `plan`, `apply`,
+      `snapshot`, `rollback`, `audit`).
 
-**Goal:** the collection stays in sync without a human in the loop.
+Current limitations of this release are listed under "Known gaps" below, and in full
+detail in [`docs/architecture/handoff.md`](docs/architecture/handoff.md).
 
-- [ ] GitHub Actions / GitLab CI hook (sync on push, fail on drift)
-- [ ] Newman test-runner integration (run the generated tests in CI)
-- [ ] `--check` mode for `status` suitable for CI gating
+## Known gaps
 
-## 1.3.0: proven at scale
+Things that don't exist yet, in no particular order and with no version number
+attached:
 
-**Goal:** a tool teams adopt and depend on, backed by evidence rather than design intent.
-
-- [ ] Documented deprecation policy on top of the existing SemVer guarantee
-- [ ] Complete documentation site with per-framework guides and screenshots
-- [ ] Validated success metric: at least 80% of synced requests need zero manual edits
-- [ ] Stable plugin/parser interface for community-contributed frameworks
-
-## Skills
-
-`--prompt` is **Phase 1** of a skill architecture. It already lets you hand Claude
-free-form guidance for a sync (`--prompt "Act as a Stripe API architect"`). The next phase
-packages that guidance into reusable, named skills:
-
-```bash
-/postman:syncapi createPayment --skill fintech
-/postman:syncall --skill healthcare
-/postman:sync -orders/ --skill ecommerce
-```
-
-A `--skill` is a curated bundle of prompt guidance (persona, terminology, example style,
-documentation conventions) that Claude loads before calling the MCP tool. The layer
-boundary is unchanged: **skills are consumed by Claude, never by the MCP server.** The
-engine stays deterministic and LLM-agnostic. See
-[`examples/prompts/`](examples/prompts/) for the seed guidance these skills will grow from.
-
-## Beyond 1.3
-
-- [ ] Mock server generated from schema
-- [ ] Pre-commit OWASP security checks
-- [ ] Auto-published living docs
+- `syncchanges` file-to-route mapping for pure-OpenAPI sources (currently falls back
+  to syncing everything when there's no code ref to match against).
+- A business-logic test-script tier behind a quality gate (the status and schema
+  tiers ship; a third, inferred tier exists in code but isn't wired up).
+- Richer diff output (field-level `~` rendering, consistent across all commands).
+- A slash-command wrapper for the submitted-model pipeline — it's callable only as
+  direct MCP tool calls today.
+- CI integration: no GitHub Actions/GitLab CI hook, no Newman test-runner
+  integration, no `--check` mode for `status`.
+- A documented deprecation policy, a stable parser interface for
+  community-contributed frameworks, and a validated success metric for how often a
+  synced request needs zero manual edits.
+- `--skill`: named, reusable bundles of the guidance `--prompt` already lets you pass
+  free-form (`--prompt "Act as a Stripe API architect"`). Same layer boundary as
+  `--prompt` — consumed by Claude, never by the MCP server.
+- A generated mock server, pre-commit OWASP checks, and an auto-published docs site
+  built from the live collection.
 
 ## Explicitly out of scope
 
-Environment switching, a rollback/snapshot system, GraphQL sync, gRPC/Protobuf, Postman
-Flows, real-time collaborative editing, and production-traffic drift detection.
+Environment switching, GraphQL sync, gRPC/Protobuf, Postman Flows, real-time
+collaborative editing, and production-traffic drift detection. (Snapshot/rollback
+exists for the submitted-model pipeline above, since it can sync LLM-sourced content
+the diff alone doesn't fully vouch for — the original six commands have no rollback
+by design; re-sync is the recovery path there, and stays that way.)
 
 ---
 
-Want to influence the roadmap? Open a
+Found something missing that you need? Open a
 [feature request](https://github.com/logesh-works/postman-mcp/issues/new?template=feature_request.yml)
 or join the discussion on an existing one.

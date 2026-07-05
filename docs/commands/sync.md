@@ -6,8 +6,11 @@ narrower than the whole codebase.
 ## Usage
 
 ```text
-/postman:sync -<filename|module|directory> [--into path] [--prompt "…"]
+/postman:sync -<filename|module|directory> [--into path]
 ```
+
+For free-form instructions (add error responses, headers, a rewritten description, …),
+use [`/postman:prompt`](prompt.md) instead.
 
 ## Targeting
 
@@ -25,7 +28,6 @@ specific. It never guesses.
 | Flag | Effect |
 |---|---|
 | `--into <path>` | Folder inside the collection where the requests land. Missing folders are created automatically. If omitted, falls back to `config.defaultInto`, which defaults to the collection root. No folder gets inferred from the file or module name. |
-| `--prompt "<text>"` | Extra guidance for Claude while it prepares the sync. Consumed by Claude, not the MCP server — see [`--prompt`](#-prompt) below. |
 
 ## Example
 
@@ -46,19 +48,10 @@ re-running this updates routes in place instead of creating duplicates. See
 [idempotency](../architecture/merge-engine.md#idempotency). Once the write result is
 shown, the command ends; no further analysis or follow-on commentary.
 
-## `--prompt`
+## Free-form instructions
 
-**Purpose:** provide additional guidance to Claude during synchronization — a persona to
-adopt, terminology to use, the example or documentation style to favor.
-
-```text
-/postman:sync -routes/payments.py --prompt "Use fintech terminology"
-```
-
-**Consumed by:** Claude Code. Claude reads the prompt while preparing the sync and uses it
-to shape its reasoning and how it frames the result.
-
-**Not consumed by:** the resolver, the builder, the merge engine, or the Postman client.
-The MCP tool has no `prompt` parameter; the engine builds the same deterministic Postman
-items whether or not a prompt was given. Prompts influence Claude, never engine structure.
-See the [Prompt & skill layer](../architecture/overview.md#prompt-skill-layer).
+`sync` itself is plain and deterministic. For anything free-form (add error responses,
+headers, a rewritten description, example values), use
+[`/postman:prompt "<text>"`](prompt.md) — Claude targets this same file/module/dir sync
+under the hood and applies the changes through the same diff-then-confirm gate. See the
+[Prompt & skill layer](../architecture/overview.md#prompt-skill-layer).

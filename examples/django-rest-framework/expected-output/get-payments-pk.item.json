@@ -11,6 +11,12 @@
       "path": [
         "payments",
         ":pk"
+      ],
+      "variable": [
+        {
+          "key": "pk",
+          "value": "string"
+        }
       ]
     },
     "description": "",
@@ -39,6 +45,12 @@
           "path": [
             "payments",
             ":pk"
+          ],
+          "variable": [
+            {
+              "key": "pk",
+              "value": "string"
+            }
           ]
         },
         "description": "",

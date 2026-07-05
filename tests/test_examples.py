@@ -27,6 +27,8 @@ _CODE_PATH_EXAMPLES = [
     ("django-rest-framework", "django"),
     ("fastapi-openapi", "fastapi"),
     ("fastapi-basic", "fastapi"),
+    ("flask-api", "flask"),
+    ("spring-api", "spring"),
 ]
 
 

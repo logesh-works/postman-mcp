@@ -13,7 +13,7 @@ expectations when you present the diff.
 ## Run it
 
 ```text
-/postman:syncall --prompt "Use enterprise API documentation style with formal descriptions and consistent naming."
+/postman:prompt "Sync the whole codebase in enterprise API documentation style with formal descriptions and consistent naming."
 ```
 
 ## What this changes

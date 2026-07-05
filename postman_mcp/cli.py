@@ -294,9 +294,9 @@ def doctor(
         _echo_fail("MCP server not registered  → fix: postman-mcp init")
         ok = False
 
-    # 5. Six slash-command md files present.
+    # 5. Slash-command md files present.
     if slash_commands_present(root):
-        _echo_ok("6 slash commands present under .claude/commands/postman/")
+        _echo_ok(f"{len(COMMAND_NAMES)} slash commands present under .claude/commands/postman/")
     else:
         _echo_fail("Slash commands missing  → fix: postman-mcp init")
         ok = False

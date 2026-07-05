@@ -1,0 +1,62 @@
+{
+  "name": "DELETE /api/payments/{id}",
+  "request": {
+    "method": "DELETE",
+    "header": [],
+    "url": {
+      "raw": "{{base_url}}/api/payments/{id}",
+      "host": [
+        "{{base_url}}"
+      ],
+      "path": [
+        "api",
+        "payments",
+        ":id"
+      ],
+      "variable": [
+        {
+          "key": "id",
+          "value": "1"
+        }
+      ]
+    },
+    "description": ""
+  },
+  "response": [
+    {
+      "name": "200 200",
+      "originalRequest": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/payments/{id}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "payments",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
+          ]
+        },
+        "description": ""
+      },
+      "status": "200",
+      "code": 200,
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": "{}",
+      "_postman_previewlanguage": "json"
+    }
+  ]
+}

@@ -72,11 +72,29 @@ only path that exists (`input/parsers/`):
 |---|---|---|---|
 | FastAPI | `@app.post("/path")` | Pydantic models, `response_model` | `Depends(get_current_user)` |
 | Express | `app.get`/`post`, router mounts | Joi/Zod/Yup schema, JSDoc `@body` tags, or inferred from `req.body` usage (weakest) | auth middleware, inline or registered with `app.use()` |
-| Django (DRF) | `urls.py` patterns, including `.as_view({...})` method mappings | serializers | `permission_classes` |
+| Django (DRF) | `urls.py` patterns, including `.as_view({...})` mappings and `DefaultRouter`/`SimpleRouter`-registered viewsets | serializers | `permission_classes` |
 | NestJS | `@Controller` + `@Post()` | DTOs with class-validator | `@UseGuards(AuthGuard)` |
+| Flask | `@app.route`/`@bp.route`, blueprint mounts | inferred from `request.json`/`.form` usage (weakest — Flask has no built-in typed body) | `@login_required`-style decorators |
+| Spring (Boot) | `@RequestMapping`/`@GetMapping`/etc. | `@RequestBody Dto` resolved against the DTO class | not detected — see the [framework guide](../frameworks/spring.md) |
 
 See the [framework guides](../frameworks/fastapi.md) for the details and the current
 known limits of each parser.
+
+## Composing the full path
+
+For frameworks where routes are registered piecemeal across files — a router mounted in
+one module, its routes declared in another — reading only the leaf decorator gives you a
+path fragment, not the real URL. `input/structural.py` builds an actual import/mount
+graph for FastAPI, Flask, and Express (`build_fastapi`, `build_flask`, `build_express`)
+and composes the full prefix chain from it. Django and Spring don't need this: Django's
+`include()` chain and Spring's class-level `@RequestMapping` are resolved directly inside
+their own parsers, without a separate graph pass.
+
+When a mount genuinely can't be traced — a prefix built from a variable, a dynamic
+`require()`/import, a cross-package boundary — the resolver reports it unresolved rather
+than guessing at a path. That's a deliberate choice: a route with a wrong composed path
+is worse than one flagged as unknown, since the wrong one looks correct until something
+breaks against it in Postman.
 
 ## Per-route mixing
 

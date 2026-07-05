@@ -16,14 +16,15 @@ CI on Linux, macOS, and Windows.
 
 ## Release support
 
-As of `1.0.0`, this project follows Semantic Versioning: the **current and previous minor
-versions** receive security fixes. Upgrading to the latest patch within a supported minor
-is the recommended path.
+As of `1.0.0`, this project follows Semantic Versioning: the **current minor version**
+receives security fixes. Upgrading to the latest patch within the supported line is the
+recommended path.
 
 | Version | Status |
 |---|---|
-| `1.1.x` | ✅ Supported |
-| `1.0.x` | ✅ Supported (previous minor) |
+| `2.0.x` | ✅ Supported |
+| `1.1.x` | ❌ Not supported (superseded by `2.0.0`) |
+| `1.0.x` | ❌ Not supported (superseded) |
 | `0.1.x` | ❌ Not supported (superseded) |
 
 ## Operating systems

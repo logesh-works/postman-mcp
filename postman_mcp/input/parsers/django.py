@@ -14,14 +14,18 @@ from __future__ import annotations
 
 import ast
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from postman_mcp.input import structural
 from postman_mcp.input.parsers.base import py_field_type, read_text, source_files
 from postman_mcp.models import (
     BodyField,
     BodyModel,
     InputSource,
+    Param,
+    ParamLocation,
     ResponseModel,
     RouteModel,
 )
@@ -35,6 +39,20 @@ _SERIALIZER_FIELD_MAP = {
 }
 _VIEW_METHODS = {"get", "post", "put", "patch", "delete"}
 
+# DRF router: a registered ViewSet generates standard routes from its action methods.
+_DRF_ACTIONS = {"list", "create", "retrieve", "update", "partial_update", "destroy"}
+# action -> (slot, http_method); "collection" = /prefix, "detail" = /prefix/{pk}
+_DRF_ACTION_ROUTE = {
+    "list": ("collection", "get"),
+    "create": ("collection", "post"),
+    "retrieve": ("detail", "get"),
+    "update": ("detail", "put"),
+    "partial_update": ("detail", "patch"),
+    "destroy": ("detail", "delete"),
+}
+_DRF_ROUTER_FACTORIES = ("DefaultRouter", "SimpleRouter")
+_PATH_PARAM_NAME = re.compile(r"\{(\w+)\}")
+
 
 def parse(
     project_root: Path | str, *, only_files: Optional[list[str]] = None
@@ -42,10 +60,14 @@ def parse(
     root = Path(project_root)
     serializers: dict[str, BodyModel] = {}
     views: dict[str, dict] = {}
-    url_files: list[tuple[Path, ast.Module]] = []
+    url_modules: dict[str, _UrlModule] = {}
     skipped: list[str] = []
 
-    for path in source_files(root, (".py",), only_files):
+    # Always scan the whole project for serializers/views/url graph: an included
+    # ``urls.py`` and the views it routes to live in different files, and the prefix that
+    # mounts it (``path('api/', include('app.urls'))``) lives in yet another. only_files
+    # would break cross-file include composition, so the structural graph is whole-project.
+    for path in source_files(root, (".py",), None):
         try:
             tree = ast.parse(read_text(path))
         except SyntaxError as exc:
@@ -55,37 +77,49 @@ def parse(
         _collect_views(tree, views, serializers)
         _collect_function_views(tree, views, serializers)
         if path.name == "urls.py":
-            url_files.append((path, tree))
+            module, _ = structural.module_name(path.relative_to(root))
+            url_modules[module] = _collect_url_module(
+                tree, module, path.relative_to(root).as_posix()
+            )
+
+    viewset_actions = {
+        name: v["actions"] for name, v in views.items() if v.get("actions")
+    }
 
     routes: list[RouteModel] = []
-    for path, tree in url_files:
-        rel = path.relative_to(root).as_posix()
-        for route_path, view_name, mapped_methods in _iter_url_patterns(tree):
-            view = views.get(view_name)
-            # A ViewSet mounted with ``.as_view({'get': 'list', 'post': 'create'})``
-            # declares exactly which HTTP methods this URL serves — trust that over the
-            # ViewSet's full default method set, so we don't invent PUT/DELETE routes.
-            if mapped_methods:
-                methods = mapped_methods
-            else:
-                methods = view["methods"] if view else ["get"]
-            for method in methods:
-                routes.append(
-                    RouteModel(
-                        method=method.upper(),
-                        path=route_path,
-                        body=view["serializer"] if view and method in ("post", "put", "patch") else None,
-                        responses=[
-                            ResponseModel(
-                                status=201 if method == "post" else 200,
-                                body=view["serializer"] if view else None,
-                            )
-                        ],
-                        auth_required=bool(view and view["auth"]),
-                        code_ref=rel,
-                        source=InputSource.CODE,
-                    )
+    for route_path, view_name, mapped_methods, rel in _compose_url_patterns(
+        url_modules, viewset_actions
+    ):
+        view = views.get(view_name)
+        # A ViewSet mounted with ``.as_view({'get': 'list', 'post': 'create'})``
+        # declares exactly which HTTP methods this URL serves — trust that over the
+        # ViewSet's full default method set, so we don't invent PUT/DELETE routes.
+        if mapped_methods:
+            methods = mapped_methods
+        else:
+            methods = view["methods"] if view else ["get"]
+        path_params = [
+            Param(name=n, location=ParamLocation.PATH, required=True)
+            for n in _PATH_PARAM_NAME.findall(route_path)
+        ]
+        for method in methods:
+            routes.append(
+                RouteModel(
+                    method=method.upper(),
+                    path=route_path,
+                    path_params=path_params,
+                    body=view["serializer"] if view and method in ("post", "put", "patch") else None,
+                    responses=[
+                        ResponseModel(
+                            status=201 if method == "post" else 200,
+                            body=view["serializer"] if view else None,
+                        )
+                    ],
+                    auth_required=bool(view and view["auth"]),
+                    code_ref=rel,
+                    source=InputSource.CODE,
                 )
+            )
     return routes, skipped
 
 
@@ -120,13 +154,17 @@ def _collect_views(
         if not any("View" in b or "ViewSet" in b for b in bases):
             continue
         methods: list[str] = []
+        actions: set[str] = set()
         serializer: Optional[BodyModel] = None
         auth = False
         is_viewset = any("ViewSet" in b for b in bases)
+        is_model_viewset = any("ModelViewSet" in b for b in bases)
         for stmt in node.body:
             if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 if stmt.name in _VIEW_METHODS:
                     methods.append(stmt.name)
+                if stmt.name in _DRF_ACTIONS:
+                    actions.add(stmt.name)
             if isinstance(stmt, ast.Assign) and isinstance(stmt.targets[0], ast.Name):
                 tname = stmt.targets[0].id
                 if tname == "serializer_class":
@@ -137,7 +175,15 @@ def _collect_views(
             methods = ["get", "post", "put", "delete"]
         if not methods:
             methods = ["get"]
-        out[node.name] = {"methods": methods, "serializer": serializer, "auth": auth}
+        # A ModelViewSet provides the full standard action set even without explicit defs.
+        if is_model_viewset:
+            actions = set(_DRF_ACTIONS)
+        out[node.name] = {
+            "methods": methods,
+            "serializer": serializer,
+            "auth": auth,
+            "actions": actions,
+        }
 
 
 def _collect_function_views(
@@ -194,26 +240,191 @@ def _has_permission_classes_auth(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> 
     return False
 
 
-def _iter_url_patterns(tree: ast.Module):
-    """Yield ``(path, view_name, mapped_methods)`` from ``path('x/', View.as_view())``.
+@dataclass
+class _UrlLeaf:
+    route: str  # raw Django route string (converters intact), e.g. "payments/<str:pk>/"
+    view_name: str
+    mapped_methods: list  # from ViewSet .as_view({...}), else []
 
-    ``mapped_methods`` is the HTTP-method list from a ViewSet ``.as_view({...})`` mapping
-    (e.g. ``['get', 'post']``), or ``[]`` when none is given.
+
+@dataclass
+class _UrlInclude:
+    route: str  # the prefix this include is mounted under
+    target_module: Optional[str]  # "app.urls" from include('app.urls'); None if dynamic
+
+
+@dataclass
+class _UrlModule:
+    module: str
+    rel: str
+    leaves: list  # list[_UrlLeaf]
+    includes: list  # list[_UrlInclude]
+    # DRF routers: var -> list of (prefix, viewset_name) from router.register(...)
+    routers: dict
+    # (mount_prefix, router_var) from path('p/', include(router.urls)) / urlpatterns = router.urls
+    router_includes: list
+
+
+def _collect_url_module(tree: ast.Module, module: str, rel: str) -> _UrlModule:
+    """Split a ``urls.py`` into leaf routes, ``include(...)`` mounts, and DRF routers.
+
+    Distinguishing these is the whole point: an ``include('app.urls')`` carries a *prefix*
+    that must compose onto every route in the included module, and a DRF
+    ``router.register('users', UserViewSet)`` expands into the full standard route set —
+    both things the old leaf-only reader dropped.
     """
+    leaves: list[_UrlLeaf] = []
+    includes: list[_UrlInclude] = []
+    routers: dict = {}
+    router_includes: list = []
+
     for node in ast.walk(tree):
+        # DRF router definitions and .register() calls
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+            if _base_name(node.value.func) in _DRF_ROUTER_FACTORIES:
+                for tgt in node.targets:
+                    if isinstance(tgt, ast.Name):
+                        routers.setdefault(tgt.id, [])
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "register"
+            and isinstance(node.func.value, ast.Name)
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+            and isinstance(node.args[0].value, str)
+        ):
+            viewset = _view_name(node.args[1]) if len(node.args) > 1 else ""
+            routers.setdefault(node.func.value.id, []).append(
+                (node.args[0].value, viewset)
+            )
+        # urlpatterns = router.urls  /  urlpatterns += router.urls  (mount at root)
+        if isinstance(node, (ast.Assign, ast.AugAssign)):
+            rv = _router_urls_ref(node.value)
+            if rv is not None:
+                router_includes.append(("", rv))
+
+        # path()/re_path() entries: leaf, module include, or router include
         if isinstance(node, ast.Call) and _base_name(node.func) in ("path", "re_path"):
             if not node.args or not isinstance(node.args[0], ast.Constant):
                 continue
             route = node.args[0].value
             if not isinstance(route, str):
                 continue
-            route = "/" + _strip_django_converters(route)
-            view_name = ""
-            mapped_methods: list[str] = []
-            if len(node.args) > 1:
-                view_name = _view_name(node.args[1])
-                mapped_methods = _as_view_methods(node.args[1])
-            yield route, view_name, mapped_methods
+            target = node.args[1] if len(node.args) > 1 else None
+            router_var = _router_include_ref(target)
+            if router_var is not None:
+                router_includes.append((route, router_var))
+                continue
+            inc_module = _include_target(target)
+            if inc_module is not _NOT_INCLUDE:
+                includes.append(_UrlInclude(route=route, target_module=inc_module))
+            else:
+                leaves.append(
+                    _UrlLeaf(
+                        route=route,
+                        view_name=_view_name(target) if target is not None else "",
+                        mapped_methods=_as_view_methods(target) if target is not None else [],
+                    )
+                )
+    return _UrlModule(
+        module=module, rel=rel, leaves=leaves, includes=includes,
+        routers=routers, router_includes=router_includes,
+    )
+
+
+def _router_urls_ref(node: Optional[ast.expr]) -> Optional[str]:
+    """``router.urls`` → ``"router"`` for a direct ``urlpatterns = router.urls``."""
+    if isinstance(node, ast.Attribute) and node.attr == "urls" and isinstance(
+        node.value, ast.Name
+    ):
+        return node.value.id
+    return None
+
+
+def _router_include_ref(node: Optional[ast.expr]) -> Optional[str]:
+    """``include(router.urls)`` → ``"router"``; else None."""
+    if isinstance(node, ast.Call) and _base_name(node.func) == "include":
+        if node.args:
+            return _router_urls_ref(node.args[0])
+    return None
+
+
+# sentinel so "not an include" is distinguishable from "include with unresolved target"
+_NOT_INCLUDE = object()
+
+
+def _include_target(node: Optional[ast.expr]):
+    """``include('app.urls')`` → ``"app.urls"``; ``include(other)`` → None; else sentinel."""
+    if not (isinstance(node, ast.Call) and _base_name(node.func) == "include"):
+        return _NOT_INCLUDE
+    if node.args and isinstance(node.args[0], ast.Constant) and isinstance(
+        node.args[0].value, str
+    ):
+        return node.args[0].value  # "app.urls"
+    return None  # include((patterns, app_name)) / include(var) — dynamic, unresolved
+
+
+def _dj_join(*parts: str) -> str:
+    return "/".join(p.strip("/") for p in parts if p.strip("/"))
+
+
+def _compose_url_patterns(modules: dict, viewset_actions: Optional[dict] = None):
+    """Walk the include graph from each root, composing prefixes onto leaf routes.
+
+    Yields ``(normalized_path, view_name, mapped_methods, rel)``. Modules that are
+    ``include``d by another are not walked as roots, so their routes appear exactly once,
+    with the full mounted prefix. DRF ``router.register`` entries are expanded into the
+    standard collection/detail routes for each viewset action.
+    """
+    viewset_actions = viewset_actions or {}
+    included = {
+        inc.target_module
+        for mod in modules.values()
+        for inc in mod.includes
+        if inc.target_module
+    }
+    roots = [m for m in modules.values() if m.module not in included]
+    # Fallback: if every module is included (no clear root, e.g. cyclic), treat all as
+    # roots so nothing is silently dropped.
+    if not roots:
+        roots = list(modules.values())
+
+    seen: set = set()
+
+    def emit(path: str, view_name: str, methods: list, rel: str):
+        key = (path, view_name, tuple(methods), rel)
+        if key in seen:
+            return
+        seen.add(key)
+        return (path, view_name, methods, rel)
+
+    def walk(mod: _UrlModule, prefix: str, stack: frozenset):
+        for leaf in mod.leaves:
+            path = "/" + _strip_django_converters(_dj_join(prefix, leaf.route))
+            row = emit(path, leaf.view_name, leaf.mapped_methods, mod.rel)
+            if row:
+                yield row
+        # DRF routers registered in this module, mounted via include(router.urls)
+        for mount_prefix, router_var in mod.router_includes:
+            for reg_prefix, viewset in mod.routers.get(router_var, []):
+                coll = "/" + _strip_django_converters(_dj_join(prefix, mount_prefix, reg_prefix))
+                detail = "/" + _strip_django_converters(
+                    _dj_join(prefix, mount_prefix, reg_prefix, "<pk>")
+                )
+                for action in viewset_actions.get(viewset, set()):
+                    slot, method = _DRF_ACTION_ROUTE[action]
+                    path = coll if slot == "collection" else detail
+                    row = emit(path, viewset, [method], mod.rel)
+                    if row:
+                        yield row
+        for inc in mod.includes:
+            child = modules.get(inc.target_module) if inc.target_module else None
+            if child is not None and inc.target_module not in stack:
+                yield from walk(child, _dj_join(prefix, inc.route), stack | {inc.target_module})
+
+    for root in roots:
+        yield from walk(root, "", frozenset())
 
 
 def _strip_django_converters(route: str) -> str:

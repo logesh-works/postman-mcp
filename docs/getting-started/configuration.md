@@ -29,7 +29,7 @@ else, and never a secret.
 
 | Field | Meaning |
 |---|---|
-| `config.framework` | Detected framework: `fastapi`, `express`, `django`, or `nestjs`. |
+| `config.framework` | Detected framework: `fastapi`, `express`, `django`, `nestjs`, `flask`, or `spring`. |
 | `config.inputMode` | `openapi` or `code`. Which source the [resolver](../architecture/resolver.md) uses. Re-checked for freshness on every sync. |
 | `config.openApiSource` | File path or URL of the spec, when `inputMode` is `openapi`. |
 | `config.workspace` | The Postman workspace id. |
@@ -38,8 +38,20 @@ else, and never a secret.
 | `config.apiKeyRef` | A reference to the API key, never the key itself. |
 | `config.responseStyle` | How many responses get saved per request: `single` (default, just the one best response), `minimal` (that plus one generic error), or `full` (every declared 2xx plus a standard error set). |
 | `config.generateTests` | Whether to attach a test script (status + schema assertions) to each synced request. `false` by default. |
+| `config.confidencePolicy` | Gate thresholds (`autoThreshold`/`flagThreshold`/`approvalThreshold`, default `90`/`75`/`50`) — see below. |
+| `config.allowLowConfidence` | Whether an endpoint below `approvalThreshold` can still be synced by naming it explicitly, instead of being blocked outright. `false` by default. |
+| `config.writeProtection` | `normal` (default), `readonly` (every write is refused), or `approve-all` (nothing writes unless named explicitly, even endpoints that would otherwise auto-sync) — see below. |
+| `config.planTtlHours` | How long a compiled plan stays valid before it must be recompiled. `24` by default. |
 | `lastUpdate.commit` | Last-synced commit. This is what `syncchanges` diffs against when you don't pass `--last` or `--since`. |
 | `lastUpdate.at` | Timestamp of the last sync. |
+
+The last four fields are read only by the `get_contract`/`submit_model`/`plan`/`apply` tool
+surface (a separate, non-slash-command way to sync described in
+[`docs/architecture/handoff.md`](../architecture/handoff.md)) — the six sync commands above
+don't consult them. An endpoint's gate score there determines what happens on `apply`:
+`auto` (≥90) syncs normally, `flag` (75–89) syncs but is marked in the diff, and below
+`approvalThreshold` it's excluded from the plan entirely unless named in
+`apply(approve=[...])`.
 
 !!! tip "Why it stays small"
     Code is the source of truth for what each API *is*. Postman is the source of truth
