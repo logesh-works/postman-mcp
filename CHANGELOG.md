@@ -69,6 +69,13 @@ elsewhere in the codebase. See "Deprecated" and "Migration notes" below.
 - **The installed version can no longer drift from `pyproject.toml`.** `__version__` is
   now read from package metadata instead of a second hardcoded literal.
 
+### Fixed
+- **The `cite` tool's path-confinement check was platform-dependent.** A Windows
+  drive-letter path (`C:/...`) is not "absolute" under POSIX `pathlib`, so on
+  Linux/macOS it could slip past the confinement check instead of being rejected as
+  outside the project root. The check is now explicit and behaves identically on every
+  host OS.
+
 ### Deprecated
 - **The original six-command tool surface** (`syncapi`/`sync`/`syncall`/`syncchanges`/
   `status`/`createenv` called as direct MCP tools, bypassing a slash command) is
