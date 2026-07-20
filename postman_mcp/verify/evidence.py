@@ -10,6 +10,7 @@ changed).
 from __future__ import annotations
 
 import hashlib
+import re
 import subprocess
 from pathlib import Path
 from typing import Literal, Optional
@@ -17,6 +18,8 @@ from typing import Literal, Optional
 from postman_mcp.contract.schema import Evidence
 
 EvidenceVerdict = Literal["verified", "fabricated", "stale", "unreadable", "confinement_violation"]
+
+_WINDOWS_DRIVE_RE = re.compile(r"^[A-Za-z]:[\\/]")
 
 
 def normalize_snippet(lines: list[str]) -> str:
@@ -29,8 +32,15 @@ def hash_snippet(lines: list[str]) -> str:
 
 
 def is_confined(project_root: Path, rel_file: str) -> bool:
-    """Reject path traversal / absolute paths — V-10's confinement half."""
-    if not rel_file or rel_file.startswith(("/", "\\")):
+    """Reject path traversal / absolute paths — V-10's confinement half.
+
+    Absolute-path detection can't rely on ``Path.is_absolute()`` alone: it's
+    platform-native, so a Windows drive-letter path like ``C:/Windows/system.ini``
+    is *not* absolute according to POSIX ``pathlib`` and would otherwise slip
+    through on Linux/macOS as a harmless-looking relative path. A citation should
+    be rejected the same way regardless of which OS the MCP server runs on.
+    """
+    if not rel_file or rel_file.startswith(("/", "\\")) or _WINDOWS_DRIVE_RE.match(rel_file):
         return False
     candidate = Path(rel_file)
     if candidate.is_absolute():
