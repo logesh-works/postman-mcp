@@ -4,13 +4,19 @@ If you just inherited this repo, read this before you touch anything. It's not a
 tour of features. It's the reasoning behind the decisions, including the ones I'm
 not fully happy with, and an honest list of what's solid versus what's duct tape.
 
-The repo currently contains **two working pipelines**. `1.1.0` and earlier shipped
-one: parser-based sync (`service/sync.py`, six commands, six frameworks, measured
-accuracy). `2.0.0`, the current release, adds a second, separate pipeline
-(`contract/`, `model/`, `verify/`, `confidence/`, `plan/`, `safety/`) that accepts a
-structured API model from an external caller instead of extracting one from code.
-The second one exists *alongside* the first, not in place of it. That's not an
-accident, and it's not finished — more on that below.
+The repo contains **two related pipelines**, plus a third, newer path the seven
+`/postman:*` slash commands actually build on. The original pipeline is parser-based
+sync (`service/sync.py`, six commands, six frameworks, measured accuracy). Alongside it
+is a second pipeline (`contract/`, `model/`, `verify/`, `confidence/`, `plan/`,
+`safety/`) that accepts a structured API model from an external caller instead of
+extracting one from code, verifies it, and writes through an explicit plan/apply step
+with snapshots and rollback. Both are described in full below; neither replaced the
+other. Layered on top of the same verification primitives (citation re-reading, field
+grounding against the deterministic repo index in `index/`) is `service/filesync.py`'s
+`get_sync_contract`/`sync_files` tool pair — a simpler two-phase confirm, no plan token
+or snapshot, which is what every slash command calls today. That pipeline came later and
+isn't the focus of this handoff, but its trust model rests on the same evidence-auditing
+idea this document explains in detail below.
 
 ## 1. The problem this project solves
 
@@ -75,7 +81,7 @@ catch a regression here. Of everything in this codebase, this is the part I'd be
 most careful not to weaken.
 
 What's intentionally simple: the CLI (`cli.py`) is six subcommands, nothing more.
-`postman-mcp.json` has two blocks — `config` and `lastUpdate` — and nothing else
+`postman/config.json` has two blocks — `config` and `lastUpdate` — and nothing else
 ever gets written into it, no secrets, no cache. Secrets resolve by reference
 (`secrets/manager.py`) through keychain/env/file, picked once at `init` time. None of
 this needed to be fancier than it is.

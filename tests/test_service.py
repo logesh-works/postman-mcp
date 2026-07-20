@@ -44,11 +44,12 @@ def project(tmp_path):
     cfg.config.framework = "fastapi"
     cfg.config.inputMode = "code"
     cfg.config.collectionId = COLLECTION_UID
-    cfg.config.apiKeyRef = "file:.postman-mcp.secret"
+    cfg.config.apiKeyRef = "file:postman/secret"
+    (tmp_path / "postman").mkdir(exist_ok=True)
     (tmp_path / CONFIG_FILENAME).write_text(
         json.dumps(cfg.model_dump()), encoding="utf-8"
     )
-    (tmp_path / ".postman-mcp.secret").write_text("PMAK-test\n", encoding="utf-8")
+    (tmp_path / "postman/secret").write_text("PMAK-test\n", encoding="utf-8")
     (tmp_path / "app.py").write_text(FASTAPI_APP, encoding="utf-8")
     return tmp_path
 

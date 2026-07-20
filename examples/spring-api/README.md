@@ -39,13 +39,12 @@ In Claude Code, in this directory:
 Actual diff preview:
 
 ```text
-| Status | Method | Route | Target | Auth | Body | Response | Source |
-|---|---|---|---|---|---|---|---|
-| [NEW] | POST | /api/payments | payments | — | PaymentRequest | — | [code] |
+Collection: <your collection>
+Plan: 1 new · 0 modified
 
-Summary: 1 new · 0 modified · 0 deprecated
+[NEW] POST /api/payments   → payments   ✓ verified (PaymentController.java:14)
 
-Write? [y / n]   (nothing writes on n)
+Write to Postman? Re-run with confirm=true to apply.   (nothing writes on n)
 ```
 
 Add the auth header by hand after syncing, or via `/postman:prompt "add a bearer token

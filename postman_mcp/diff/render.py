@@ -61,7 +61,9 @@ def _footnotes(changed: list[RequestDiff]) -> list[str]:
 
 def render_plan(plan: SyncPlan) -> str:
     """Render the full preview for a write-capable command."""
-    if not plan.diffs and not plan.skipped:
+    # A plan with only UNCHANGED entries (everything already matches the code) is just
+    # as "nothing to sync" as a genuinely empty plan — ``has_changes`` covers both.
+    if not plan.has_changes and not plan.skipped:
         return "Nothing to sync. The collection is already up to date with the code."
 
     blocks: list[str] = []
@@ -86,17 +88,23 @@ def render_plan(plan: SyncPlan) -> str:
             + "\n  - ".join(plan.skipped)
         )
 
-    summary = _summary(changed)
+    summary = _summary(plan.diffs)
     blocks.append(summary)
     blocks.append("Write? [y / n]   (nothing writes on n)")
     return "\n\n".join(blocks)
 
 
-def _summary(changed: list[RequestDiff]) -> str:
-    new = sum(1 for d in changed if d.change is ChangeType.NEW)
-    mod = sum(1 for d in changed if d.change is ChangeType.MODIFIED)
-    dep = sum(1 for d in changed if d.change is ChangeType.DEPRECATED)
-    return f"Summary: {new} new · {mod} modified · {dep} deprecated"
+def _summary(diffs: list[RequestDiff]) -> str:
+    """Summarize a full diff list (including UNCHANGED, surfaced only when present so
+    existing all-NEW/all-MODIFIED summaries read exactly as before)."""
+    new = sum(1 for d in diffs if d.change is ChangeType.NEW)
+    mod = sum(1 for d in diffs if d.change is ChangeType.MODIFIED)
+    dep = sum(1 for d in diffs if d.change is ChangeType.DEPRECATED)
+    unchanged = sum(1 for d in diffs if d.change is ChangeType.UNCHANGED)
+    parts = [f"{new} new", f"{mod} modified", f"{dep} deprecated"]
+    if unchanged:
+        parts.append(f"{unchanged} unchanged")
+    return "Summary: " + " · ".join(parts)
 
 
 def render_status(plan: SyncPlan) -> str:
@@ -116,5 +124,5 @@ def render_status(plan: SyncPlan) -> str:
     if plan.skipped:
         blocks.append("Skipped: " + ", ".join(plan.skipped))
 
-    blocks.append(_summary(changed))
+    blocks.append(_summary(plan.diffs))
     return "\n\n".join(blocks)

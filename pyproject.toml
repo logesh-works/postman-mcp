@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "postman-mcp"
-version = "2.0.0"
+version = "3.0.0"
 description = "An MCP server for Claude Code that generates and updates Postman requests from your API code, with a diff before every write."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -36,6 +36,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Precise symbol extraction for non-Python languages (V3 index layer).
+# Without it, Python uses stdlib `ast` (exact) and other languages use the
+# built-in degraded regex backend — everything still works.
+treesitter = [
+    "tree-sitter>=0.21",
+    "tree-sitter-language-pack>=0.4",
+]
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=5.0.0",

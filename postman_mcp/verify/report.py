@@ -27,6 +27,7 @@ class EndpointVerdict(BaseModel):
     verdict: EndpointStatus = "pass"
     findings: list[Finding] = Field(default_factory=list)
     confidence: dict[str, int] = Field(default_factory=dict)  # existence/path/body/auth/responses
+    grades: dict[str, str] = Field(default_factory=dict)  # same keys, E1-E4 (confidence/grades.py)
 
     @property
     def is_rejected(self) -> bool:

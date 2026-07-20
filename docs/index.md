@@ -35,13 +35,12 @@ if you confirm.
 ```
 
 ```text
-| Status | Method | Route | Target | Auth | Body | Response | Source |
-|---|---|---|---|---|---|---|---|
-| [NEW] | POST | /payments | payments | Bearer | PaymentRequest | 201 | [code] |
+Collection: Acme Backend
+Plan: 1 new · 0 modified
 
-Summary: 1 new · 0 modified · 0 deprecated
+[NEW] POST /payments   → payments   ✓ verified (app/payments.py:12)
 
-Write? [y / n]
+Write to Postman? Re-run with confirm=true to apply.
 ```
 
 There are seven commands in total, five of them variations on "sync" — covering
@@ -49,10 +48,10 @@ everything from one route to the whole codebase — plus `createenv` and `status
 See [Commands](commands/index.md) for all of them, and [The engine](architecture/engine.md)
 for the actual JSON this produces.
 
-## AI-assisted, but deterministic
+## Claude-guided, but deterministic
 
-Postman MCP keeps two layers cleanly separated: **Claude Code is the intelligence layer;
-the MCP server is the deterministic execution layer.** For free-form, natural-language
+Postman MCP keeps two layers cleanly separated: **Claude Code does the reading and
+reasoning; the MCP server does the checking and writing.** For free-form, natural-language
 sync use [`/postman:prompt`](commands/prompt.md):
 
 ```text
@@ -60,10 +59,10 @@ sync use [`/postman:prompt`](commands/prompt.md):
 ```
 
 Claude reads the instruction — persona, terminology, example style, concrete additions —
-picks the right tool and target, and expresses the "how" as a structured `overrides`
-patch the deterministic engine merges before the diff. The instruction is **consumed by
-Claude, never by the MCP server**: it influences reasoning, not engine structure. The
-server runs no LLM and depends on no AI provider API. See the
+picks the scope, and folds the "how" directly into the collection it authors. The
+instruction is **read by Claude, never by the MCP server**: the server validates what
+Claude wrote, re-verifies every citation against your actual source, and diffs the
+result before anything is written. It runs no LLM and depends on no AI provider API. See
 [Prompt & skill layer](architecture/overview.md#prompt-skill-layer).
 
 ## How it decides what to read
@@ -101,7 +100,7 @@ from. See [Architecture](architecture/overview.md) for the full breakdown.
 | Step | Where | What happens |
 |---|---|---|
 | `pip install postman-mcp` | terminal | Installs the CLI, the MCP server, and the slash-command templates. |
-| `postman-mcp init` | terminal | Handshakes your API key, lets you pick a workspace and collection, writes `postman-mcp.json`, registers the MCP server, installs the slash commands. |
+| `postman-mcp init` | terminal | Handshakes your API key, lets you pick a workspace and collection, writes `postman/config.json`, registers the MCP server, installs the slash commands. |
 | `/postman:*` | Claude Code | Day-to-day syncing. |
 
 After `init`, you don't go back to the terminal for normal use.

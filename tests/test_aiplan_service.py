@@ -45,9 +45,10 @@ def project(tmp_path):
     cfg.config.framework = "fastapi"
     cfg.config.inputMode = "code"
     cfg.config.collectionId = COLLECTION_UID
-    cfg.config.apiKeyRef = "file:.postman-mcp.secret"
+    cfg.config.apiKeyRef = "file:postman/secret"
+    (tmp_path / "postman").mkdir(exist_ok=True)
     (tmp_path / CONFIG_FILENAME).write_text(json.dumps(cfg.model_dump()), encoding="utf-8")
-    (tmp_path / ".postman-mcp.secret").write_text("PMAK-test\n", encoding="utf-8")
+    (tmp_path / "postman/secret").write_text("PMAK-test\n", encoding="utf-8")
     (tmp_path / "app.py").write_text(FASTAPI_APP, encoding="utf-8")
     return tmp_path
 
@@ -70,6 +71,27 @@ def test_plan_without_model_id_uses_witness_fallback(project):
     preview = aiplan.plan(project_root=project)
     assert "POST" in preview and "/payments" in preview
     assert "plan_id:" in preview
+
+
+@respx.mock
+def test_plan_without_model_id_uses_graph_witness_on_engine_v3(project):
+    """engine: "v3" routes the fallback producer through the graph witness instead of
+    the parser witness (Phase 4). Route identity still resolves (grounded decorator +
+    HTTP verb), but the honest fidelity gap — no schema extraction — is real: assert
+    it directly at the APIM level rather than guessing at a rendered table string."""
+    cfg = json.loads((project / CONFIG_FILENAME).read_text())
+    cfg["config"]["engine"] = "v3"
+    (project / CONFIG_FILENAME).write_text(json.dumps(cfg), encoding="utf-8")
+
+    _mock_get_collection()
+    preview = aiplan.plan(project_root=project)
+    assert "POST" in preview and "/payments" in preview
+
+    from postman_mcp.verify.graph_witness import build_graph_witness
+    from postman_mcp.witness.engine import witness_to_apim
+
+    apim = witness_to_apim(build_graph_witness(project), project_root=project)
+    assert apim.endpoints[0].request_body is None  # documented gap: no schema extraction
 
 
 @respx.mock

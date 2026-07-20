@@ -1,5 +1,12 @@
 # Input resolver
 
+!!! info "Scope"
+    This page documents the deterministic, framework-parser pipeline. The seven slash
+    commands use Claude to read your code directly instead — see the
+    [architecture overview](overview.md). This pipeline is what the lower-level MCP
+    tools use for fully deterministic, LLM-free parsing, and what backs the independent
+    verification pass described in [the engineering handoff](handoff.md).
+
 The resolver produces a normalized `RouteModel` from whichever source is available. An
 OpenAPI spec is preferred when one exists: it's the framework's own typed, validated
 declaration of the API, so trusting it is both more accurate and cheaper than

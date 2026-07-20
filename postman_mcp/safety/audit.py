@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-AUDIT_FILENAME = ".postman-mcp/audit.jsonl"
+AUDIT_FILENAME = "postman/audit.jsonl"
 
 
 def _path(project_root: Path | str) -> Path:

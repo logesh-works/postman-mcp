@@ -31,7 +31,7 @@ postman-mcp init
    default); only a pointer (`apiKeyRef`) is written to config. See
    [Configuration](configuration.md) for the env-var and file fallbacks.
 4. **Pick workspace + collection.** Choose the project's collection, or create a new one.
-5. **Write `postman-mcp.json`** at the project root: small, committable, and secret-free.
+5. **Write `postman/config.json`** at the project root: small, committable, and secret-free.
 6. **Register with Claude Code + install slash commands.** This makes the `/postman:*`
    commands appear.
 
@@ -39,7 +39,7 @@ On success you'll see:
 
 ```text
 ✓ Connected to Postman workspace "Acme API" → collection "Acme Backend"
-✓ Config written to ./postman-mcp.json
+✓ Config written to ./postman/config.json
 ✓ MCP server registered with Claude Code
 ✓ 7 slash commands installed
 
@@ -84,9 +84,9 @@ tool and target, and applies the changes through the same diff-then-confirm gate
 /postman:prompt "Sync what changed and add the standard error responses"
 ```
 
-The instruction is read by Claude, not by the MCP server: Claude turns it into a
-structured `overrides` patch the deterministic engine merges before the diff, so the same
-code + overrides always builds the same item. See the
+The instruction is read by Claude, not by the MCP server: Claude folds it directly into
+the collection it authors, and the MCP server validates and verifies the result the same
+way regardless of what prompted it. See the
 [Prompt & skill layer](../architecture/overview.md#prompt-skill-layer) and
 [`examples/prompts/`](https://github.com/logesh-works/postman-mcp/tree/main/examples/prompts)
 for ready-made personas.
@@ -107,5 +107,5 @@ exists. It names anything broken and gives you the one command to fix it.
 ## Next steps
 
 - Learn each command in the [Commands reference](../commands/index.md).
-- Understand the [`postman-mcp.json` config](configuration.md).
+- Understand the [`postman/config.json` config](configuration.md).
 - See how it works under the hood in the [Architecture overview](../architecture/overview.md).

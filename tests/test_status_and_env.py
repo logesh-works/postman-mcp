@@ -38,9 +38,10 @@ def project(tmp_path):
     cfg.config.framework = "fastapi"
     cfg.config.inputMode = "code"
     cfg.config.collectionId = COLLECTION_UID
-    cfg.config.apiKeyRef = "file:.postman-mcp.secret"
+    cfg.config.apiKeyRef = "file:postman/secret"
+    (tmp_path / "postman").mkdir(exist_ok=True)
     (tmp_path / CONFIG_FILENAME).write_text(json.dumps(cfg.model_dump()), encoding="utf-8")
-    (tmp_path / ".postman-mcp.secret").write_text("PMAK-test\n", encoding="utf-8")
+    (tmp_path / "postman/secret").write_text("PMAK-test\n", encoding="utf-8")
     (tmp_path / "app.py").write_text(FASTAPI_APP, encoding="utf-8")
     return tmp_path
 
@@ -79,9 +80,16 @@ def test_status_flags_drifted_route_as_deprecated(project):
     assert "/legacy" in out
 
 
+def _mock_no_existing_environments():
+    return respx.get(f"{BASE_URL}/environments").mock(
+        return_value=httpx.Response(200, json={"environments": []})
+    )
+
+
 @respx.mock
 def test_createenv_preview_masks_secrets(project):
     _mock_collection()
+    _mock_no_existing_environments()
     out = create_env(name="Local", confirm=False, project_root=project)
     assert 'ENV PREVIEW' in out
     assert "base_url" in out
@@ -93,9 +101,30 @@ def test_createenv_preview_masks_secrets(project):
 @respx.mock
 def test_createenv_confirm_creates_environment(project):
     _mock_collection()
+    _mock_no_existing_environments()
     post = respx.post(f"{BASE_URL}/environments").mock(
         return_value=httpx.Response(200, json={"environment": {"uid": "env-9"}})
     )
     out = create_env(name="Local", confirm=True, project_root=project)
     assert "✓ Created environment" in out
     assert post.called
+
+
+@respx.mock
+def test_createenv_rerun_updates_instead_of_duplicating(project):
+    """Re-running createenv with the same name must update the environment it created
+    last time, not create a second one — the duplicate-on-rerun bug."""
+    _mock_collection()
+    respx.get(f"{BASE_URL}/environments").mock(
+        return_value=httpx.Response(
+            200, json={"environments": [{"uid": "env-9", "name": "Local"}]}
+        )
+    )
+    post = respx.post(f"{BASE_URL}/environments").mock(return_value=httpx.Response(200, json={}))
+    put = respx.put(f"{BASE_URL}/environments/env-9").mock(
+        return_value=httpx.Response(200, json={"environment": {"uid": "env-9"}})
+    )
+    out = create_env(name="Local", confirm=True, project_root=project)
+    assert "✓ Updated environment" in out
+    assert put.called
+    assert not post.called

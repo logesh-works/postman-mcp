@@ -1,4 +1,4 @@
-"""The verification pipeline — V-02 through V-14 over a parsed :class:`ApiModel`.
+"""The verification pipeline — V-02 through V-15 over a parsed :class:`ApiModel`.
 
 ``V-01`` (schema conformance + size caps) already ran during ingest
 (:func:`postman_mcp.model.store.parse_model`) — a document that fails it never reaches
@@ -16,11 +16,17 @@ import re
 from pathlib import Path
 from typing import Optional
 
+from postman_mcp.confidence.grades import compute_grade
 from postman_mcp.confidence.scorer import EndpointAudit, FactAudit, score_endpoint
-from postman_mcp.contract.schema import ApiModel, Endpoint, ExtractionMethod, SchemaNode, Traced
+from postman_mcp.contract.schema import ApiModel, Endpoint, Evidence, ExtractionMethod, SchemaNode, Traced
+from postman_mcp.index import RepoIndex, build_index
+from postman_mcp.index.fields import ground_claimed_fields
+from postman_mcp.index.graph import RepoGraph
 from postman_mcp.model.store import compute_model_id
 from postman_mcp.models import HTTP_METHODS, normalize_path
+from postman_mcp.verify.candidates import is_grounded_evidence
 from postman_mcp.verify.evidence import audit_evidence
+from postman_mcp.verify.fields import resolve_cited_class
 from postman_mcp.verify.report import EndpointVerdict, Finding, VerificationReport, WitnessSummary
 from postman_mcp.witness.engine import WitnessSet, build_witness_set
 
@@ -82,6 +88,36 @@ def run_pipeline(
     rejected: set[str] = set()
     stale: set[str] = set()
     service_ids = model.service_ids()
+
+    # The deterministic index (V3 Layer 0) — used for framework-blind grounding (an
+    # additional, non-exclusive path through V-07 alongside the legacy signal-token
+    # check) and evidence grading (confidence/grades.py). Never gates on its own: a
+    # build failure just means grounding/grading degrade, exactly like a witness crash.
+    graph_index: Optional[RepoIndex] = None
+    repo_graph: Optional[RepoGraph] = None
+    try:
+        graph_index = build_index(root)
+        repo_graph = graph_index.graph()
+    except Exception:  # pragma: no cover - defensive: index build must never block verify
+        graph_index = None
+        repo_graph = None
+
+    def _grounded(evidence_list: list[Evidence]) -> bool:
+        if graph_index is None:
+            return False
+        return any(
+            is_grounded_evidence(graph_index, ev.file, ev.line_start, ev.line_end)
+            for ev in evidence_list
+        )
+
+    def _corroborated_route(method: str, path: str) -> bool:
+        if graph_index is None:
+            return False
+        norm = normalize_path(path)
+        for c in graph_index.corpus:
+            if c.path and normalize_path(c.path) == norm and (not c.method or c.method.upper() == method.upper()):
+                return True
+        return False
 
     # --- V-02 / V-03 / V-10 (structural, per-endpoint) --------------------------------
     for ep in model.endpoints:
@@ -200,15 +236,29 @@ def run_pipeline(
             if traced is None:
                 continue
             audits[dim] = _audit_fact(traced, root, commit_for_audit, findings, ep.uid, dim)
+        if "body" in audits and not is_witness_model:
+            # Field-level grounding only makes sense for an LLM's own claims; the
+            # witness engine derives fields from real code by construction, so
+            # grounding it against itself would be a tautology (see witness/engine.py
+            # -- it reuses its route's identity evidence for the body/response citation
+            # too, which resolve_cited_class would otherwise happily match).
+            audits["body"].fields_grounded_ratio = _apply_field_grounding(
+                repo_graph, ep.request_body, findings, ep.uid, "request_body")
         if ep.responses:
             # Treat the response set as one fact for scoring purposes.
             all_ok = True
             count = 0
+            response_ratios: list[float] = []
             for r in ep.responses:
                 fa = _audit_fact(r, root, commit_for_audit, findings, ep.uid, "responses")
                 all_ok = all_ok and fa.all_evidence_verified
                 count += fa.evidence_count
-            audits["responses"] = FactAudit(evidenced=count > 0, all_evidence_verified=all_ok, evidence_count=count)
+                if not is_witness_model:
+                    response_ratios.append(_apply_field_grounding(repo_graph, r, findings, ep.uid, "responses"))
+            audits["responses"] = FactAudit(
+                evidenced=count > 0, all_evidence_verified=all_ok, evidence_count=count,
+                fields_grounded_ratio=(sum(response_ratios) / len(response_ratios)) if response_ratios else 1.0,
+            )
         fact_audits[ep.uid] = audits
 
     # --- witness engine + cross-checks (V-07, V-08, V-12, V-13) -----------------------
@@ -283,9 +333,14 @@ def run_pipeline(
             continue
 
         # Genuinely unmatched — must be evidenced + audited clean + cite a real
-        # registration signal, or it's rejected as a hallucination (V-07).
+        # registration signal, or it's rejected as a hallucination (V-07). The
+        # framework-token list is the legacy (V2) check; grounding — is the cited
+        # span a real decorated symbol or mined candidate, per the index — is the
+        # framework-blind (V3) one. Either is sufficient: grounding only ever
+        # *widens* what's accepted as non-hallucinated, never narrows it, so this is
+        # purely additive to the legacy behavior.
         quotes = " ".join(ev.quote for ev in ep.identity_evidence)
-        has_signal = any(sig in quotes for sig in _REGISTRATION_SIGNALS)
+        has_signal = any(sig in quotes for sig in _REGISTRATION_SIGNALS) or _grounded(ep.identity_evidence)
         if identity_status.get(ep.uid) != "verified" or not has_signal:
             _add(findings, ep.uid, Finding(
                 check="V-07", severity="reject",
@@ -360,16 +415,51 @@ def run_pipeline(
         if ep.uid in rejected:
             verdict = "reject"
             confidence: dict[str, int] = {}
+            grades: dict[str, str] = {}
         else:
+            existence_audit = fact_audits[ep.uid]["existence"]
+            path_audit = fact_audits[ep.uid]["path"]
+            body_audit = fact_audits[ep.uid].get("body")
+            auth_audit = fact_audits[ep.uid].get("auth")
+            responses_audit = fact_audits[ep.uid].get("responses")
             audit = EndpointAudit(
                 generator_is_witness=is_witness_model,
-                existence=fact_audits[ep.uid]["existence"],
-                path=fact_audits[ep.uid]["path"],
-                body=fact_audits[ep.uid].get("body"),
-                auth=fact_audits[ep.uid].get("auth"),
-                responses=fact_audits[ep.uid].get("responses"),
+                existence=existence_audit, path=path_audit,
+                body=body_audit, auth=auth_audit, responses=responses_audit,
             )
             confidence = score_endpoint(audit)
+
+            identity_corroborated = _corroborated_route(ep.method, ep.path)
+            identity_grounded = _grounded(ep.identity_evidence)
+            grades = {
+                "existence": compute_grade(
+                    evidenced=existence_audit.evidenced, all_evidence_verified=existence_audit.all_evidence_verified,
+                    agreement=existence_audit.agreement, corroborated=identity_corroborated, grounded=identity_grounded,
+                ).value,
+                "path": compute_grade(
+                    evidenced=path_audit.evidenced, all_evidence_verified=path_audit.all_evidence_verified,
+                    agreement=path_audit.agreement, corroborated=identity_corroborated, grounded=identity_grounded,
+                ).value,
+            }
+            if body_audit is not None and ep.request_body is not None:
+                grades["body"] = compute_grade(
+                    evidenced=body_audit.evidenced, all_evidence_verified=body_audit.all_evidence_verified,
+                    agreement=body_audit.agreement, grounded=_grounded(ep.request_body.evidence),
+                    fields_grounded=None if body_audit.fields_grounded_ratio == 1.0 else False,
+                ).value
+            if auth_audit is not None:
+                grades["auth"] = compute_grade(
+                    evidenced=auth_audit.evidenced, all_evidence_verified=auth_audit.all_evidence_verified,
+                    agreement=auth_audit.agreement, grounded=_grounded(ep.auth.evidence),
+                ).value
+            if responses_audit is not None and ep.responses:
+                resp_evidence = [ev for r in ep.responses for ev in r.evidence]
+                grades["responses"] = compute_grade(
+                    evidenced=responses_audit.evidenced, all_evidence_verified=responses_audit.all_evidence_verified,
+                    agreement=responses_audit.agreement, grounded=_grounded(resp_evidence),
+                    fields_grounded=None if responses_audit.fields_grounded_ratio == 1.0 else False,
+                ).value
+
             if ep.uid in stale:
                 verdict = "stale"
             elif any(f.severity == "warn" for f in ep_findings):
@@ -377,7 +467,7 @@ def run_pipeline(
             else:
                 verdict = "pass"
         endpoints_out[ep.uid] = EndpointVerdict(
-            uid=ep.uid, verdict=verdict, findings=ep_findings, confidence=confidence,
+            uid=ep.uid, verdict=verdict, findings=ep_findings, confidence=confidence, grades=grades,
         )
 
     # Surface omission findings (not tied to a model endpoint) under their own keys.
@@ -455,6 +545,51 @@ def _audit_fact(
                 detail=detail,
             ))
     return FactAudit(evidenced=True, all_evidence_verified=all_ok, evidence_count=len(traced.evidence))
+
+
+def _apply_field_grounding(
+    repo_graph: Optional[RepoGraph],
+    traced: Optional[Traced],
+    findings: dict[str, list[Finding]],
+    uid: str,
+    name: str,
+) -> float:
+    """V-15 — ground each top-level ``field_name`` on ``traced``'s schema against the
+    class its own evidence cites. Returns a grounded ratio in ``[0, 1]``; ``1.0``
+    whenever nothing is checkable (no graph, no schema, no claimed fields, or the
+    citation doesn't resolve to a class) — additive-only, never a regression on
+    today's scoring or verdicts. Never emits ``severity="reject"``: a claimed field
+    absent from the cited class is real signal, but not proof of a hallucinated
+    endpoint (dict/``**kwargs`` bodies are common and legitimate).
+    """
+    if repo_graph is None or traced is None:
+        return 1.0
+    node: Optional[SchemaNode] = getattr(traced.value, "schema_", None)
+    if node is None or not node.fields:
+        return 1.0
+    claimed = {f.field_name for f in node.fields if f.field_name}
+    if not claimed:
+        return 1.0
+    cls = resolve_cited_class(repo_graph, traced.evidence)
+    if cls is None:
+        return 1.0  # cites e.g. the handler line, not the DTO — graceful no-op
+    result = ground_claimed_fields(repo_graph, cls, claimed)
+    for missing in sorted(result.ungrounded):
+        _add(findings, uid, Finding(
+            check="V-15", severity="warn",
+            message=f"{name} claims field {missing!r} not found on {cls.qualname} ({cls.file}).",
+            detail={"class": cls.qualname, "file": cls.file, "field": missing},
+        ))
+    for unsure in sorted(result.unknown):
+        _add(findings, uid, Finding(
+            check="V-15", severity="info",
+            message=(
+                f"{name} field {unsure!r} could not be confirmed on {cls.qualname} — "
+                "an unresolved base class may define it; not counted against confidence."
+            ),
+        ))
+    denom = len(claimed)
+    return (len(result.grounded) + len(result.unknown)) / denom if denom else 1.0
 
 
 def _check_conflicts(model: ApiModel, findings: dict[str, list[Finding]]) -> None:

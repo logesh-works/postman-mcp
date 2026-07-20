@@ -46,9 +46,8 @@ The mark is a stylized "M" (for MCP) inside a rounded orange tile, already drawn
 
 1. **GitHub social preview.** `social/social-preview.png`, 1280x640: repo name, tagline,
    and the diff-preview motif on brand orange. Set under repo Settings > Social preview.
-   For any AI framing on these assets, follow the
-   [messaging guardrails](launch/LAUNCH.md#messaging-guardrails): "Claude-guided" /
-   "AI-assisted, powered by Claude Code" — never "AI inside MCP."
+   Follow the [messaging guardrails](launch/LAUNCH.md#messaging-guardrails) for any
+   copy on these assets — plain and factual, no "AI-powered" framing.
 2. **README banner.** `banner/banner.png`, full-width, tagline plus logo.
 3. **Animated demo.** A terminal/Claude Code recording of `syncapi` producing a diff,
    exported as GIF or SVG, for example with [asciinema](https://asciinema.org/) plus

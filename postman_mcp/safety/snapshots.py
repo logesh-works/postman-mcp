@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-SNAPSHOTS_DIRNAME = ".postman-mcp/snapshots"
+SNAPSHOTS_DIRNAME = "postman/snapshots"
 DEFAULT_RETENTION = 20
 
 

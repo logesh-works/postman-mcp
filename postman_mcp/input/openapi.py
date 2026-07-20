@@ -78,10 +78,23 @@ def _ref_name(schema: dict[str, Any]) -> Optional[str]:
 
     Must be read from the schema *before* it's deref'd, since resolving the ``$ref``
     replaces it with the target's body and loses the name.
+
+    A bare array schema (``{"type": "array", "items": {"$ref": ...}}`` — how
+    ``@ApiOkResponse({ type: X, isArray: true })`` and friends serialize "returns X[]")
+    has no ``$ref`` of its own: the reference is one level down, on ``items``. Without
+    looking there, the name falls back to a generic ``Response200``/``RequestBody``
+    placeholder even though a real component name exists. Recursing into ``items``
+    (handling ``X[][]`` too) preserves it as ``"X[]"`` instead.
     """
     ref = schema.get("$ref")
     if isinstance(ref, str) and ref.startswith("#/"):
         return ref.rsplit("/", 1)[-1]
+    if schema.get("type") == "array":
+        items = schema.get("items")
+        if isinstance(items, dict):
+            item_name = _ref_name(items)
+            if item_name:
+                return f"{item_name}[]"
     return None
 
 

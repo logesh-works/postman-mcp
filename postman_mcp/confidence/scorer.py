@@ -25,6 +25,7 @@ class FactAudit:
     evidence_count: int = 0
     agreement: Agreement = "unavailable"
     is_identity: bool = False
+    fields_grounded_ratio: float = 1.0   # grounded+unknown / claimed; 1.0 = n/a or fully grounded
 
 
 @dataclass
@@ -42,6 +43,7 @@ class EndpointAudit:
 _AGREEMENT_BONUS = 5
 _DISAGREEMENT_SCORE = 50
 _AUDIT_PENALTY = 15
+_FIELD_PENALTY_FLOOR = 0.5  # worst case (ratio=0) halves the score; never zeroes it
 
 
 def _score_fact(fact: FactAudit, *, generator_is_witness: bool) -> int:
@@ -59,20 +61,27 @@ def _score_fact(fact: FactAudit, *, generator_is_witness: bool) -> int:
         base_class = (
             ExtractionMethod.AST_VERIFIED if fact.is_identity else ExtractionMethod.FRAMEWORK_VERIFIED
         )
-        return CLASS_CAP[base_class]
-
-    if fact.agreement == "agree":
+        base = CLASS_CAP[base_class]
+    elif fact.agreement == "agree":
         promoted = ExtractionMethod.AST_VERIFIED if fact.is_identity else ExtractionMethod.FRAMEWORK_VERIFIED
-        return min(CLASS_CAP[promoted], CLASS_CAP[promoted] + _AGREEMENT_BONUS)
+        base = min(CLASS_CAP[promoted], CLASS_CAP[promoted] + _AGREEMENT_BONUS)
+    elif not fact.evidenced:
+        # No witness opinion available — audited-only tiers.
+        base = CLASS_CAP[ExtractionMethod.AI_INFERRED]
+    elif fact.is_identity:
+        base = CLASS_CAP[ExtractionMethod.FRAMEWORK_VERIFIED]
+    elif fact.evidence_count >= 2:
+        base = CLASS_CAP[ExtractionMethod.MULTI_SOURCE_INFERRED]
+    else:
+        base = CLASS_CAP[ExtractionMethod.AI_INFERRED]
 
-    # No witness opinion available — audited-only tiers.
-    if not fact.evidenced:
-        return CLASS_CAP[ExtractionMethod.AI_INFERRED]
-    if fact.is_identity:
-        return CLASS_CAP[ExtractionMethod.FRAMEWORK_VERIFIED]
-    if fact.evidence_count >= 2:
-        return CLASS_CAP[ExtractionMethod.MULTI_SOURCE_INFERRED]
-    return CLASS_CAP[ExtractionMethod.AI_INFERRED]
+    if fact.fields_grounded_ratio < 1.0:
+        # Graduated, not binary: a body with most fields grounded loses little; a
+        # body with none grounded loses half, never all of it — legitimate dynamic
+        # bodies (dict/**kwargs) exist and must not be punished as hard as a wrong
+        # citation (which already floors at WEAK_INFERENCE above, unconditionally).
+        base = round(base * (_FIELD_PENALTY_FLOOR + (1 - _FIELD_PENALTY_FLOOR) * fact.fields_grounded_ratio))
+    return base
 
 
 def score_endpoint(audit: EndpointAudit) -> dict[str, int]:

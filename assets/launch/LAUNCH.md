@@ -4,22 +4,25 @@ Copy-ready text for publishing Postman MCP. Tune the voice per platform, but kee
 core fact the same: it generates and updates Postman requests from your API code, and
 shows a diff before every write.
 
-> **Pre-launch gate:** `0.1.0` already met the release gates — real test suite, live
-> `init` → `syncall` run, tagged and published to PyPI. Before posting any of this for
-> `1.0.0`, re-confirm the [release checklist](../../docs/development/release-process.md)
-> for the new tag (CI green, changelog updated, `1.0.0` itself tagged and published).
+> **Before posting anything here:** re-confirm the
+> [release checklist](../../docs/development/release-process.md) against the tag you're
+> actually announcing (CI green, changelog updated, tag published to PyPI).
 
 ## Messaging guardrails
 
-The architecture is two clean layers — **Claude is the intelligence layer, the MCP server
-is the deterministic execution layer** — and the messaging must reflect that.
+The architecture is two clean layers — **Claude does the reading and reasoning; the MCP
+server does the checking and writing** — and the messaging should reflect that, in plain,
+precise language. No hype, no "AI-powered"/"next-generation" framing.
 
-- ✅ Use: **"Claude-guided Postman synchronization"** or **"AI-assisted Postman
-  synchronization powered by Claude Code."**
-- ✅ Fine to highlight `--prompt` as Claude-side guidance ("steer the sync in plain
-  English; the engine stays deterministic").
+- ✅ Use: **"Generates and updates Postman requests from your API code, from inside
+  Claude Code"** or **"Claude-guided, but deterministic."**
+- ✅ Fine to highlight `/postman:prompt` as a way to steer a sync in plain English —
+  "the instruction shapes what Claude writes; the MCP server stays deterministic and
+  verifies it before anything reaches Postman."
 - ❌ Avoid: **"AI inside MCP,"** "the MCP server uses AI/an LLM," or anything implying the
   server interprets prompts or runs a model. It does not.
+- ❌ Avoid exaggerated claims — "revolutionary," "magic," "next-generation." The pitch is
+  precise and practical: it reads your code and saves you from retyping it into Postman.
 
 ---
 
@@ -60,8 +63,9 @@ api-documentation
 >
 > Postman MCP is an MCP server for Claude Code that reads your codebase and writes
 > complete Postman requests: body, params, auth headers, a response, realistic example
-> values, and optionally a test script. Five sync commands cover everything from one
-> route (`/postman:syncapi`) to the whole project (`/postman:syncall`).
+> values, and optionally a test script. Seven commands cover everything from one route
+> (`/postman:syncapi`) to the whole project (`/postman:syncall`), plus natural-language
+> sync, environments, and a read-only drift check.
 >
 > A few choices I'd like feedback on:
 > - **OpenAPI-first.** When your framework emits a spec (FastAPI, NestJS, DRF), one
@@ -154,15 +158,16 @@ r/node, and read each subreddit's self-promotion rules first.)*
 **Follow-up tweet:**
 
 > It's Claude-guided, but deterministic. Steer a sync in plain English —
-> `--prompt "Act as a Stripe API architect"` — and Claude shapes the framing. The MCP
-> server itself runs no LLM: the same code always produces the same Postman item.
+> `/postman:prompt "Act as a Stripe API architect"` — and Claude shapes the framing.
+> The MCP server itself runs no LLM: it validates and verifies whatever Claude wrote
+> before anything reaches Postman.
 
 ---
 
 ## Launch checklist
 
 - [ ] A live `init` → `syncall` run against a real Postman workspace. See release-process.md.
-- [ ] `1.0.0` published to PyPI and installable (`pip install postman-mcp`)
+- [ ] Latest release published to PyPI and installable (`pip install postman-mcp`)
 - [ ] Docs site live on GitHub Pages
 - [ ] Social preview image set on the repo
 - [ ] Animated demo embedded in the README

@@ -14,7 +14,7 @@ against it and the request it generates. They double as fixtures for understandi
 | [`flask-api/`](flask-api/) | Flask | code parsing | ✅ runnable |
 | [`spring-api/`](spring-api/) | Spring (Boot) | code parsing | 📝 scaffold |
 
-For AI-assisted syncing, [`prompts/`](prompts/) holds ready-made personas for
+For natural-language syncing, [`prompts/`](prompts/) holds ready-made personas for
 [`/postman:prompt`](../docs/commands/prompt.md) (fintech, healthcare, enterprise,
 ecommerce) showing how an instruction steers **Claude** while the MCP server stays
 deterministic.

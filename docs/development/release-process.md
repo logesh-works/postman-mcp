@@ -8,15 +8,8 @@ via OIDC trusted publishing, so no API token needs to be stored in the repo.
 Semantic Versioning, in effect as of `1.0.0`: breaking changes require a major version
 bump; minor versions are additive; patch versions are bug fixes only.
 
-| Version | Milestone |
-|---|---|
-| `0.1.0` | MVP: the kernel works end to end (tagged, published to PyPI, live-run validated) |
-| `1.0.0` | Adds the Claude-guided `--prompt` layer on top of the proven kernel |
-| `1.1.0` | Foundation hardening: extraction-pipeline fixes from auditing real output (current) |
-| `1.2.0` | CI hook and Newman test loop |
-| `1.3.0` | Proven at scale: documented deprecation policy, complete framework guides |
-
-See the [roadmap](../roadmap.md) for what's in each.
+See [CHANGELOG.md](https://github.com/logesh-works/postman-mcp/blob/main/CHANGELOG.md)
+for what shipped in each release, and the [roadmap](../roadmap.md) for what's next.
 
 ## Cutting a release
 
@@ -30,7 +23,9 @@ See the [roadmap](../roadmap.md) for what's in each.
    git tag vX.Y.Z
    git push && git push --tags
    ```
-5. **Publish a GitHub Release** for the tag. Paste the changelog section as the notes.
+5. **Publish a GitHub Release** for the tag. Write release notes for the page — a
+   concise summary and highlights aimed at someone deciding whether to upgrade, not a
+   verbatim copy of the changelog section.
 6. The **Release workflow** (`.github/workflows/release.yml`) builds the sdist + wheel,
    runs `twine check`, and publishes to PyPI.
 7. The **Docs workflow** redeploys the site on the next push to `main`.

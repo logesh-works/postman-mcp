@@ -2,8 +2,8 @@
 
 After [`postman-mcp init`](../getting-started/quickstart.md), seven slash commands are
 available inside Claude Code. The sync commands aren't separate implementations: they all
-build the same complete Postman request through the same engine, and differ only in which
-routes they pick and where the result lands.
+go through the same validate → verify → diff → confirm → write pipeline, and differ only
+in which routes Claude analyzes and where the result lands.
 
 | Command | One-liner |
 |---|---|
@@ -27,12 +27,13 @@ sequenceDiagram
     participant S as MCP server
     participant P as Postman
     You->>CC: /postman:syncapi create_payment
-    CC->>S: syncapi(target, confirm=false)
+    Note over CC: Claude reads the code and authors<br/>collection.json + metadata.json
+    CC->>S: sync_files(confirm=false)
     S->>P: GET collection (read structure)
-    S-->>CC: diff preview (writes nothing)
-    CC-->>You: diff table ... Write? [y/n]
+    S-->>CC: validated, verified diff preview (writes nothing)
+    CC-->>You: diff ... Write to Postman? [y/n]
     You->>CC: y
-    CC->>S: syncapi(target, confirm=true)
+    CC->>S: sync_files(confirm=true)
     S->>P: PUT merged collection
     S-->>CC: written
 ```
@@ -47,11 +48,10 @@ more analysis or commentary after that.
 For free-form instructions — "add error responses to the payments routes", "give every
 endpoint an `X-Request-Id` header", "rewrite the login description" — use
 [`/postman:prompt "<text>"`](prompt.md). Claude reads the instruction, picks the right
-sync tool and target, and expresses the "how" as a structured `overrides` patch the
-engine merges before the diff. The instruction is **consumed by Claude, not by the MCP
-server**, which has no `prompt` parameter and stays deterministic; everything still goes
-through the same diff-then-confirm gate. See the
-[Prompt & skill layer](../architecture/overview.md#prompt-skill-layer).
+scope and target, and folds the "how" directly into the collection it authors. The
+instruction is **read by Claude, not by the MCP server**, which has no `prompt` parameter
+and stays deterministic; everything still goes through the same diff-then-confirm gate.
+See the [Prompt & skill layer](../architecture/overview.md#prompt-skill-layer).
 
 ## Terminal vs. Claude Code
 

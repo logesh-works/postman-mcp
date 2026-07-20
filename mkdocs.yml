@@ -101,6 +101,7 @@ nav:
       - status: commands/status.md
   - Architecture:
       - Overview: architecture/overview.md
+      - Repository index & retrieval: architecture/indexing.md
       - Engineering handoff: architecture/handoff.md
       - The engine: architecture/engine.md
       - Input resolver: architecture/resolver.md

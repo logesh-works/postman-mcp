@@ -3,9 +3,9 @@
 Three locations, by preference:
 1. OS credential store via ``keyring`` (default)   → ``keychain:<name>``
 2. Environment variable                            → ``env:POSTMAN_API_KEY``
-3. Gitignored secret file ``.postman-mcp.secret``  → ``file:.postman-mcp.secret``
+3. Gitignored secret file ``postman/secret``       → ``file:postman/secret``
 
-``postman-mcp.json`` stores only the *reference* (``config.apiKeyRef``); this module
+``postman/config.json`` stores only the *reference* (``config.apiKeyRef``); this module
 resolves the value at run time and writes the raw key only to keychain/env/file.
 """
 
@@ -33,14 +33,15 @@ def _keyring():
 def store_api_key(ref: str, key: str, project_root: Path | str = ".") -> None:
     """Persist the raw key to the location named by ``ref``.
 
-    Never writes to ``postman-mcp.json``. For ``env:`` refs the caller is responsible
+    Never writes to ``postman/config.json``. For ``env:`` refs the caller is responsible
     for exporting the variable; we just validate the shape.
     """
     scheme, _, target = ref.partition(":")
     if scheme == "keychain":
         _keyring().set_password(KEYRING_SERVICE, target or KEYRING_SERVICE, key)
     elif scheme == "file":
-        path = Path(project_root) / (target or ".postman-mcp.secret")
+        path = Path(project_root) / (target or "postman/secret")
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(key.strip() + "\n", encoding="utf-8")
     elif scheme == "env":
         # Cannot persist an env var for the user's shell; document the expectation.
@@ -70,7 +71,7 @@ def resolve_api_key(ref: str, project_root: Path | str = ".") -> str:
             )
         return value
     if scheme == "file":
-        path = Path(project_root) / (target or ".postman-mcp.secret")
+        path = Path(project_root) / (target or "postman/secret")
         if not path.exists():
             raise SecretError(f"Secret file {path} not found.")
         return path.read_text(encoding="utf-8").strip()

@@ -1,6 +1,6 @@
 """The policy gate — turns a gate score into an action.
 
-Thresholds are config (``postman-mcp.json`` → ``confidencePolicy``).
+Thresholds are config (``postman/config.json`` → ``confidencePolicy``).
 ``allow_low_confidence`` mirrors ``config.allowLowConfidence``.
 """
 

@@ -80,9 +80,22 @@ def _decorator_evidence(project, contains="@app.post") -> Evidence:
     raise AssertionError(f"{contains!r} not found in fixture")
 
 
-def _model(*endpoints: Endpoint, commit=None) -> ApiModel:
+def _class_evidence(project, class_name="PaymentRequest", filename="app.py") -> Evidence:
+    """Cite a DTO class's own declaration line — what field grounding resolves against."""
+    text = (project / filename).read_text().splitlines()
+    for idx, line in enumerate(text):
+        if f"class {class_name}" in line:
+            return Evidence(
+                file=filename, line_start=idx + 1, line_end=idx + 1, symbol=class_name,
+                extraction_method=ExtractionMethod.AI_INFERRED,
+                snippet_sha256=_hash(line), quote=line.strip()[:200],
+            )
+    raise AssertionError(f"class {class_name!r} not found in fixture")
+
+
+def _model(*endpoints: Endpoint, commit=None, provider="claude") -> ApiModel:
     return ApiModel(
-        generator=GeneratorInfo(provider="claude", model="test"),
+        generator=GeneratorInfo(provider=provider, model="test"),
         repo={"commit": commit} if commit else {},
         services=[Service(id="default")],
         endpoints=list(endpoints),
@@ -255,3 +268,134 @@ def test_manual_witness_none_still_runs(project):
     v = report.endpoints[ep.uid]
     assert v.verdict != "reject"
     assert v.confidence["existence"] == 90
+
+
+# --- V-15 field grounding -----------------------------------------------------------
+
+
+def test_field_grounding_passes_for_real_fields(project):
+    ev = _real_evidence(project)
+    class_ev = _class_evidence(project)
+    ep = Endpoint(
+        uid="default:POST:/payments", service="default", method="POST", path="/payments",
+        identity_evidence=[ev],
+        request_body=Traced(
+            value=Body(schema=SchemaNode(type="object", fields=[
+                SchemaNode(type="string", field_name="amount"),
+                SchemaNode(type="string", field_name="currency"),
+            ])),
+            confidence=0.5, evidence=[class_ev],
+        ),
+    )
+    report = run_pipeline(_model(ep), project)
+    v = report.endpoints[ep.uid]
+    assert v.verdict != "reject"
+    assert not any(f.check == "V-15" for f in v.findings)
+
+
+def test_hallucinated_field_is_warned_not_rejected_and_demotes_confidence(project):
+    ev = _real_evidence(project)
+    class_ev = _class_evidence(project)
+    ep = Endpoint(
+        uid="default:POST:/payments", service="default", method="POST", path="/payments",
+        identity_evidence=[ev],
+        request_body=Traced(
+            value=Body(schema=SchemaNode(type="object", fields=[
+                SchemaNode(type="string", field_name="amount"),
+                SchemaNode(type="string", field_name="totallyMadeUp"),
+            ])),
+            confidence=0.5, evidence=[class_ev],
+        ),
+    )
+    report = run_pipeline(_model(ep), project)
+    v = report.endpoints[ep.uid]
+    assert v.verdict == "warn"  # never rejected purely for an ungrounded field
+    v15 = [f for f in v.findings if f.check == "V-15"]
+    assert v15 and v15[0].severity == "warn"
+    assert "totallyMadeUp" in v15[0].message
+    # Half the claimed fields ungrounded -> demoted below the pre-grounding baseline (50).
+    assert v.confidence["body"] < 50
+    assert v.grades.get("body") != "E3"
+
+
+def test_inherited_field_grounds_via_base_class_walk(tmp_path):
+    app = '''
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+app = FastAPI()
+
+
+class BaseInfo(BaseModel):
+    tenant_id: str
+
+
+class PaymentRequest(BaseInfo):
+    amount: int
+    currency: str
+
+
+@app.post("/payments")
+def create_payment(body: PaymentRequest):
+    """Create a payment."""
+    return {}
+'''
+    (tmp_path / "app.py").write_text(app, encoding="utf-8")
+    ev = _real_evidence(tmp_path)
+    class_ev = _class_evidence(tmp_path)
+    ep = Endpoint(
+        uid="default:POST:/payments", service="default", method="POST", path="/payments",
+        identity_evidence=[ev],
+        request_body=Traced(
+            value=Body(schema=SchemaNode(type="object", fields=[
+                SchemaNode(type="string", field_name="amount"),
+                SchemaNode(type="string", field_name="tenant_id"),  # inherited, not on PaymentRequest itself
+            ])),
+            confidence=0.5, evidence=[class_ev],
+        ),
+    )
+    report = run_pipeline(_model(ep), tmp_path)
+    v = report.endpoints[ep.uid]
+    assert v.verdict != "reject"
+    assert not any(f.check == "V-15" for f in v.findings)
+
+
+def test_body_citation_on_handler_line_is_a_graceful_noop(project):
+    """A good-faith citation of the handler (not the DTO class) is common; field
+    grounding must not fire at all for it, matching pre-grounding scores exactly."""
+    ev = _real_evidence(project)
+    ep = Endpoint(
+        uid="default:POST:/payments", service="default", method="POST", path="/payments",
+        identity_evidence=[ev],
+        request_body=Traced(
+            value=Body(schema=SchemaNode(type="object", fields=[
+                SchemaNode(type="string", field_name="totallyMadeUp"),
+            ])),
+            confidence=0.5, evidence=[ev],  # cites create_payment, not PaymentRequest
+        ),
+    )
+    report = run_pipeline(_model(ep), project)
+    v = report.endpoints[ep.uid]
+    assert not any(f.check == "V-15" for f in v.findings)
+    assert v.confidence["body"] == 50  # unchanged ai_inferred baseline
+
+
+def test_witness_generated_model_skips_field_grounding(project):
+    """The parser-witness path derives fields from real code by construction and
+    reuses its identity evidence for the body citation — grounding it against
+    itself would be a tautology, so it must be skipped outright."""
+    ev = _real_evidence(project)
+    class_ev = _class_evidence(project)
+    ep = Endpoint(
+        uid="default:POST:/payments", service="default", method="POST", path="/payments",
+        identity_evidence=[ev],
+        request_body=Traced(
+            value=Body(schema=SchemaNode(type="object", fields=[
+                SchemaNode(type="string", field_name="totallyMadeUp"),
+            ])),
+            confidence=0.9, evidence=[class_ev],
+        ),
+    )
+    report = run_pipeline(_model(ep, provider="witness"), project)
+    v = report.endpoints[ep.uid]
+    assert not any(f.check == "V-15" for f in v.findings)

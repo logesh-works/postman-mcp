@@ -5,10 +5,19 @@ local registry. Conflict rule: **code wins on structure, human wins on craft**
 — on update we overwrite structural request fields (method/url/headers/body/auth) but
 read back and preserve human-owned test scripts (``event``), saved-response examples, and
 edited descriptions. Deletes are soft by default.
+
+An existing item is only ever ``NEW`` or ``MODIFIED`` at the point a route is matched —
+whether it actually *changes* anything is a separate question, answered by
+:func:`items_equivalent`: it simulates the merge (:func:`_merge_item`) and compares the
+result to what's already live, ignoring Postman-generated identifiers and normalizing
+JSON bodies/headers/response order so cosmetic differences (key order, whitespace,
+an auto-assigned ``id``) never masquerade as real drift. A route whose merge would be a
+complete no-op is reported/applied as ``UNCHANGED`` instead of ``MODIFIED``.
 """
 
 from __future__ import annotations
 
+import json
 from typing import Any, Optional
 
 from postman_mcp.models import (
@@ -18,6 +27,10 @@ from postman_mcp.models import (
     RouteModel,
     normalize_path,
 )
+
+# Fields Postman injects on its own (never present in what we build/PUT) — ignored when
+# deciding whether a merge would actually change anything.
+_IGNORED_KEYS = frozenset({"id", "_postman_id", "uid", "postmanId"})
 
 _BASE_URL_PREFIX = "{{base_url}}"
 
@@ -134,6 +147,19 @@ def compute_diff(
 
     _, _, current = existing
     preserved = _preserved_fields(current)
+    merged_preview = _merge_item(current, built_item)
+    if items_equivalent(current, merged_preview):
+        return RequestDiff(
+            change=ChangeType.UNCHANGED,
+            method=route.method.upper(),
+            path=route.path,
+            into=into or "/",
+            source=route.source,
+            lines=[],
+            preserved=preserved,
+            low_confidence=low_conf,
+            **table_cells,
+        )
     return RequestDiff(
         change=ChangeType.MODIFIED,
         method=route.method.upper(),
@@ -227,8 +253,100 @@ def apply_route(
 
     parent, idx, current = existing
     merged = _merge_item(current, built_item)
+    if items_equivalent(current, merged):
+        return ChangeType.UNCHANGED
     parent[idx] = merged
     return ChangeType.MODIFIED
+
+
+# --- equivalence (is a merge actually a no-op?) --------------------------------------
+
+
+def items_equivalent(current: dict[str, Any], merged: dict[str, Any]) -> bool:
+    """True when applying ``merged`` over ``current`` would change nothing observable.
+
+    Compares the two Postman items after :func:`_normalize` strips Postman-generated
+    identifiers and canonicalizes JSON bodies/headers/response ordering — so a request
+    that already matches the code (same method/url/headers/body/auth; unmodified
+    human-owned event/response/description, which ``_merge_item`` never touches when
+    already present) reports ``UNCHANGED`` instead of ``MODIFIED``.
+    """
+    return _normalize(current) == _normalize(merged)
+
+
+# List/string fields where "absent" and "explicitly empty" are the same thing in
+# Postman's schema (e.g. no test scripts vs. ``event: []``) — normalized away so an
+# item built fresh (which always states these keys, even empty) never looks different
+# from a live item that simply omits them.
+_DROP_IF_EMPTY_LIST = frozenset({"event", "response", "header", "query", "variable"})
+_DROP_IF_EMPTY_STRING = frozenset({"description"})
+
+
+def _normalize(value: Any, key: Optional[str] = None) -> Any:
+    if isinstance(value, dict):
+        out: dict[str, Any] = {}
+        for k, v in value.items():
+            if k in _IGNORED_KEYS:
+                continue
+            nv = _normalize(v, key=k)
+            if k in _DROP_IF_EMPTY_LIST and nv == []:
+                continue
+            if k in _DROP_IF_EMPTY_STRING and nv == "":
+                continue
+            out[k] = nv
+        return out
+    if isinstance(value, list):
+        if key == "header":
+            return _normalize_headers(value)
+        if key == "response":
+            return _normalize_responses(value)
+        return [_normalize(v) for v in value]
+    if isinstance(value, str) and key in ("body", "raw"):
+        parsed = _try_json(value)
+        return parsed if parsed is not None else value.strip()
+    return value
+
+
+def _normalize_headers(headers: list[Any]) -> list[tuple[tuple[str, Any], ...]]:
+    """Order-insensitive, but keeps every field (``key``/``value``/``disabled``/...) —
+    not just key+value — so e.g. a header flipping required↔disabled still counts as a
+    real change instead of being silently discarded."""
+    normed = [
+        tuple(sorted(_normalize(h).items())) for h in headers if isinstance(h, dict)
+    ]
+    return sorted(normed)
+
+
+def _normalize_responses(responses: list[Any]) -> list[dict[str, Any]]:
+    normed = [_normalize(r) for r in responses if isinstance(r, dict)]
+    normed.sort(key=lambda r: (r.get("code") or 0, str(r.get("name") or "")))
+    return normed
+
+
+def _try_json(raw: str) -> Any:
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return None
+
+
+def _merge_url(current_url: Optional[dict[str, Any]], new_url: dict[str, Any]) -> dict[str, Any]:
+    """Code owns ``raw``/``host``/``path``/``query`` — but ``variable`` is special:
+    Postman auto-derives it (``{"key": "id"}`` per ``:id``/``{id}`` path token) the
+    moment a collection with a templated path round-trips through its API, whether or
+    not the request we PUT included one. The documented request-builder shape never
+    authors a ``variable`` array at all (path params stay literal in ``path``), so
+    without this, every ``:param`` route would permanently look "modified" (Postman's
+    own auto-added array vs. our url that never has one) and, worse, a real write would
+    silently discard any variable description/example a human had set in Postman.
+    Keep the live ``variable`` when the code-built url doesn't specify one.
+    """
+    merged_url = dict(new_url)
+    if "variable" not in merged_url:
+        live_variable = (current_url or {}).get("variable")
+        if isinstance(live_variable, list) and live_variable:
+            merged_url["variable"] = live_variable
+    return merged_url
 
 
 def _merge_item(current: dict[str, Any], built: dict[str, Any]) -> dict[str, Any]:
@@ -239,7 +357,9 @@ def _merge_item(current: dict[str, Any], built: dict[str, Any]) -> dict[str, Any
 
     # Code owns structure: method, url, header, body, auth.
     for field in ("method", "url", "header", "body", "auth"):
-        if field in new_req:
+        if field == "url" and field in new_req:
+            cur_req[field] = _merge_url(cur_req.get("url"), new_req["url"])
+        elif field in new_req:
             cur_req[field] = new_req[field]
         elif field in cur_req and field in ("body", "auth"):
             # route no longer has a body/auth → drop the stale structural field

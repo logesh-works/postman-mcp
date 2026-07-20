@@ -23,7 +23,7 @@ from postman_mcp.contract.schema import (
     apim_major,
 )
 
-MODELS_DIRNAME = ".postman-mcp/models"
+MODELS_DIRNAME = "postman/models"
 
 
 class ModelIngestError(Exception):

@@ -1,14 +1,43 @@
 # Diff engine
 
-Every write is preceded by a diff in Claude Code. The diff engine renders it as a
-markdown table, so you can scan the whole change set at once: which requests are new vs.
-modified, where each one lands, and whether it came from a typed spec or heuristic code
-parsing.
+Every write is preceded by a diff in Claude Code. Matching, ordering, and the underlying
+change classification (new / modified / unchanged) come from one shared engine
+(`postman/merge.py`) no matter which path produced the request; only the rendering
+differs by path.
 
-Module: `diff/render.py`. Columns: `Status | Method | Route | Target | Auth | Body |
-Response | Source`.
+## What the seven slash commands show
 
-## New and modified requests
+`service/filesync.py` renders a plain-text preview, one line per endpoint:
+
+```text
+Collection: Acme Backend
+Plan: 1 new · 1 modified
+
+[NEW] POST /payments   → payments   ✓ verified (app/payments.py:12)
+[MODIFY] PUT /orders/{id}   → orders   ~ stale citation (code moved since cited)
+
+Write to Postman? Re-run with confirm=true to apply.
+```
+
+Each line is labelled with what the citation-verification pass found:
+
+- **`✓ verified (file:line)`**: the cited code was re-read and matches exactly what
+  Claude claimed.
+- **`~ stale citation`**: the citation is well-formed but the code has moved since it was
+  cited — usually safe to re-sync.
+- **`⚠ CITATION DOES NOT MATCH CODE`**: the cited lines don't back the claim. Excluded
+  from the write unless approved explicitly.
+- **`· unverified (no citation)`**: content with no citation at all (for example, an
+  extra error response added from a `/postman:prompt` instruction) — shown honestly as
+  unverified rather than silently trusted.
+
+A preserved test script or saved example shows up as a `preserves:` note under its line;
+an excluded endpoint is tagged `[EXCLUDED — <reason>]`.
+
+## What the lower-level tool surface shows
+
+MCP clients calling `syncapi`/`sync`/`syncall`/`syncchanges` directly instead of through a
+slash command get a markdown table instead, rendered by `diff/render.py`:
 
 ```text
 | Status | Method | Route | Target | Auth | Body | Response | Source |
@@ -21,30 +50,15 @@ Summary: 1 new · 1 modified · 0 deprecated
 Write? [y / n]
 ```
 
-`Target` is the folder the request lands in. It shows `Root Collection` when no `--into`
-was given. Every route in one sync run shares the same target; nothing gets auto-foldered
-per route based on its name or path. `Body` and `Response` show the named type the engine
-resolved, or `N/A`/`—` when there isn't one. Anything that doesn't fit in a cell, like a
-low-confidence warning or a note about preserved fields, shows up as a footnote under the
-table:
+`Target` is the folder the request lands in; it shows `Root Collection` when no `--into`
+was given.
 
-```text
-  ⚠ PUT /orders/{id}: lower confidence (body inferred, not from a type)
-  PUT /orders/{id}, Preserved (human-owned): test scripts, saved examples / responses
-```
+### Source labels
 
-## Source labels
-
-Each request is tagged with where its model came from:
-
-- **`[openapi]`**: derived from a typed OpenAPI spec. High confidence.
-- **`[code]`**: derived from code parsing. Confidence varies. A typed body (a Pydantic
-  model, a DTO, a validated schema) is just as trustworthy as OpenAPI; a body inferred
-  from how `req.body` is used in an Express handler with no schema and no JSDoc is not,
-  and gets flagged as lower confidence in the footnotes.
-
-This makes [per-route mixing](resolver.md#per-route-mixing) visible. In one diff you
-might see most routes tagged `[openapi]` and a manually mounted one tagged `[code]`.
+`Source` tags where the request's model came from: **`[openapi]`** (a typed spec — high
+confidence) or **`[code]`** (parsed from source — confidence varies, and a body inferred
+from usage with no schema is flagged lower-confidence in a footnote). See
+[per-route mixing](resolver.md#per-route-mixing).
 
 ## The two-phase contract
 

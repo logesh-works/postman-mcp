@@ -34,16 +34,15 @@ In Claude Code, in this directory:
 Actual diff preview:
 
 ```text
-| Status | Method | Route | Target | Auth | Body | Response | Source |
-|---|---|---|---|---|---|---|---|
-| [NEW] | POST | /payments | payments | Bearer | RequestBody | — | [code] |
+Collection: <your collection>
+Plan: 1 new · 0 modified
 
-Summary: 1 new · 0 modified · 0 deprecated
+[NEW] POST /payments   → payments   ✓ verified (app.py:18)
 
-Write? [y / n]   (nothing writes on n)
+Write to Postman? Re-run with confirm=true to apply.   (nothing writes on n)
 ```
 
-`RequestBody` and lower confidence are expected here — there's no Pydantic model or
+A lower-confidence note on the body is expected here — there's no Pydantic model or
 schema to read, just `request.json.get("amount")` / `request.json.get("currency")` in the
 handler. That's the ceiling for Flask without a validation library or an OpenAPI spec.
 

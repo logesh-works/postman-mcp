@@ -67,6 +67,62 @@ def test_missing_config_raises(tmp_path):
         load_config(tmp_path)
 
 
+# --- pre-reorg layout migration --------------------------------------------
+
+def test_legacy_config_and_secret_migrate_into_postman_dir(tmp_path):
+    (tmp_path / "postman-mcp.json").write_text(
+        json.dumps(PostmanMcpConfig().model_dump()), encoding="utf-8"
+    )
+    (tmp_path / ".postman-mcp.secret").write_text("PMAK-legacy\n", encoding="utf-8")
+
+    loaded = load_config(tmp_path)  # triggers migration as a side effect
+
+    assert loaded.version == 1
+    assert not (tmp_path / "postman-mcp.json").exists()
+    assert not (tmp_path / ".postman-mcp.secret").exists()
+    assert (tmp_path / CONFIG_FILENAME).exists()
+    assert (tmp_path / "postman" / "secret").read_text(encoding="utf-8") == "PMAK-legacy\n"
+
+
+def test_legacy_cache_dir_contents_migrate_into_postman_dir(tmp_path):
+    legacy = tmp_path / ".postman-mcp"
+    (legacy / "index").mkdir(parents=True)
+    (legacy / "index" / "index.json").write_text("{}", encoding="utf-8")
+    (legacy / "models").mkdir(parents=True)
+    (legacy / "models" / "abc.json").write_text("{}", encoding="utf-8")
+    (legacy / "plans").mkdir(parents=True)
+    (legacy / "snapshots").mkdir(parents=True)
+    (legacy / "audit.jsonl").write_text('{"event": "test"}\n', encoding="utf-8")
+
+    save_config(PostmanMcpConfig(), tmp_path)  # config_path() runs migration first
+    load_config(tmp_path)
+
+    assert not legacy.exists()
+    assert (tmp_path / "postman" / "index" / "index.json").read_text(encoding="utf-8") == "{}"
+    assert (tmp_path / "postman" / "models" / "abc.json").read_text(encoding="utf-8") == "{}"
+    assert (tmp_path / "postman" / "plans").is_dir()
+    assert (tmp_path / "postman" / "snapshots").is_dir()
+    assert (tmp_path / "postman" / "audit.jsonl").read_text(encoding="utf-8") == '{"event": "test"}\n'
+
+
+def test_migration_does_not_clobber_existing_new_layout_files(tmp_path):
+    (tmp_path / "postman").mkdir()
+    new_cfg = PostmanMcpConfig()
+    new_cfg.config.collectionId = "already-migrated"
+    (tmp_path / CONFIG_FILENAME).write_text(
+        json.dumps(new_cfg.model_dump()), encoding="utf-8"
+    )
+    (tmp_path / "postman-mcp.json").write_text(
+        json.dumps(PostmanMcpConfig().model_dump()), encoding="utf-8"
+    )
+
+    loaded = load_config(tmp_path)
+
+    assert loaded.config.collectionId == "already-migrated"
+    # the stray legacy file is left alone rather than overwriting the real config
+    assert (tmp_path / "postman-mcp.json").exists()
+
+
 def test_config_never_contains_raw_key(tmp_path):
     """The committable config must hold a reference, never the secret."""
     cfg = PostmanMcpConfig()
@@ -83,10 +139,10 @@ def test_config_never_contains_raw_key(tmp_path):
 # --- secret resolver: file + env ----------------------------------------
 
 def test_store_and_resolve_via_file(tmp_path):
-    store_api_key("file:.postman-mcp.secret", "PMAK-abc123", tmp_path)
-    secret_file = tmp_path / ".postman-mcp.secret"
+    store_api_key("file:postman/secret", "PMAK-abc123", tmp_path)
+    secret_file = tmp_path / "postman/secret"
     assert secret_file.exists()
-    assert resolve_api_key("file:.postman-mcp.secret", tmp_path) == "PMAK-abc123"
+    assert resolve_api_key("file:postman/secret", tmp_path) == "PMAK-abc123"
 
 
 def test_store_and_resolve_via_env(monkeypatch):

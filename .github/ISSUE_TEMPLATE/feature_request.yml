@@ -37,6 +37,8 @@ body:
     attributes:
       label: Area
       options:
+        - Repository index / context retrieval
+        - Citation verification / field grounding
         - Engine (request building)
         - Input resolver / OpenAPI
         - Framework parser

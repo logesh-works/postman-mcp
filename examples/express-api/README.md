@@ -1,11 +1,11 @@
 # Example: Express (code parsing)
 
-Express has no native OpenAPI spec and no native type system, so this example exercises
-the **code-parsing path**. Every request is tagged `[code]`. Body confidence depends on
-the source: a JSDoc `@body {type} name` annotation (or a Joi/Zod/Yup schema) is an
-explicit author declaration and counts as **high confidence**, while fields only inferred
-from `req.body` usage are flagged "lower confidence" in the diff. The `POST /payments`
-route here is annotated with JSDoc, so its body is read at high confidence: no warning.
+Express has no native OpenAPI spec and no native type system, so this example is a good
+test of Claude reading source directly. Body confidence depends on what backs the claim:
+a JSDoc `@body {type} name` annotation (or a Joi/Zod/Yup schema) is an explicit author
+declaration and cites cleanly, while fields only inferred from `req.body` usage carry a
+weaker citation and get flagged in the diff. The `POST /payments` route here is
+annotated with JSDoc, so its body is read with a solid citation: no warning.
 
 ## The API
 
@@ -29,21 +29,19 @@ postman-mcp init     # detects Express, sets inputMode = code
 ```
 
 ```text
-| Status | Method | Route | Target | Auth | Body | Response | Source |
-|---|---|---|---|---|---|---|---|
-| [NEW] | POST | /payments | payments | Bearer | RequestBody | 201 | [code] |
-| [NEW] | GET | /payments/:id | payments | Bearer | N/A | 200 | [code] |
+Collection: <your collection>
+Plan: 2 new · 0 modified
 
-Summary: 2 new · 0 modified · 0 deprecated
+[NEW] POST /payments   → payments   ✓ verified (app.js:14)
+[NEW] GET /payments/:id   → payments   ✓ verified (app.js:22)
 
-Write? [y / n]   (nothing writes on n)
+Write to Postman? Re-run with confirm=true to apply.   (nothing writes on n)
 ```
 
-No "lower confidence" footnote appears: the `POST /payments` body fields come from the
-route's JSDoc `@body` tags, which the parser treats as an explicit declaration. Strip
-those tags and the same fields would still be picked up from the `req.body` destructuring,
-but then they'd be flagged lower confidence, since usage alone carries no type
-information.
+No confidence warning appears: the `POST /payments` body fields come from the route's
+JSDoc `@body` tags, an explicit declaration. Strip those tags and the same fields would
+still be picked up from the `req.body` destructuring, but then they'd be flagged lower
+confidence, since usage alone carries no type information.
 
 > **Tip:** adopting a spec generator (`swagger-jsdoc`, `tsoa`) upgrades Express to the
 > high-confidence OpenAPI path for every route at once. See the

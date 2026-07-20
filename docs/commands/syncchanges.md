@@ -34,7 +34,7 @@ by your last sync. You never name a git ref yourself.
 |---|---|
 | **New** route | Full create. |
 | **Modified** route | Only the changed structural fields are updated; human-owned scripts and examples are preserved. |
-| **Deleted** route | Marked deprecated (soft delete). Use `--purge` elsewhere for a hard delete. |
+| **Deleted** route | Noted in the sync notes, not auto-removed or deprecated yet — deletion handling is still manual. Remove the stale request from the collection by hand. |
 
 ## Why it's cheap
 
@@ -49,12 +49,13 @@ saving it up.
 <edit routes/payments.py, commit>
 /postman:syncchanges
 
-| Status | Method | Route | Target | Auth | Body | Response | Source |
-|---|---|---|---|---|---|---|---|
-| [MODIFIED] | POST | /payments | Root Collection | Bearer | PaymentRequest | PaymentResponse | [code] |
-| [NEW] | GET | /payments/{id} | Root Collection | Bearer | N/A | PaymentResponse | [code] |
+Collection: Acme Backend
+Plan: 1 new · 1 modified
 
-Write? [y / n]
+[MODIFY] POST /payments   → (root)   ✓ verified (routes/payments.py:12)
+[NEW] GET /payments/{id}   → (root)   ✓ verified (routes/payments.py:24)
+
+Write to Postman? Re-run with confirm=true to apply.
 ```
 
 Once the write result is shown, the command ends; no further analysis or follow-on

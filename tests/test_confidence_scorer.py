@@ -86,3 +86,32 @@ def test_allow_low_confidence_opts_a_blocked_score_into_needs_approval():
 def test_gate_action_respects_custom_policy():
     policy = PolicyConfig(auto_threshold=99, flag_threshold=95, approval_threshold=90)
     assert gate_action(96, policy=policy) == "flag"
+
+
+# --- field-grounding ratio (V-15) -----------------------------------------------------
+
+
+def test_default_fields_grounded_ratio_is_a_no_op():
+    audit = _audit(
+        body=FactAudit(evidenced=True, all_evidence_verified=True, evidence_count=2, agreement="unavailable")
+    )
+    scores = score_endpoint(audit)
+    assert scores["body"] == 75  # identical to test_multi_source_agreement_without_witness_scores_75
+
+
+def test_zero_fields_grounded_ratio_halves_the_score():
+    audit = _audit(
+        body=FactAudit(evidenced=True, all_evidence_verified=True, evidence_count=2, agreement="unavailable",
+                        fields_grounded_ratio=0.0)
+    )
+    scores = score_endpoint(audit)
+    assert scores["body"] == 38  # round(75 * (0.5 + 0.5 * 0.0)) == round(37.5) == 38
+
+
+def test_partial_fields_grounded_ratio_scales_between_floor_and_full():
+    audit = _audit(
+        body=FactAudit(evidenced=True, all_evidence_verified=True, evidence_count=2, agreement="unavailable",
+                        fields_grounded_ratio=0.5)
+    )
+    scores = score_endpoint(audit)
+    assert scores["body"] == 56  # round(75 * (0.5 + 0.5 * 0.5)) == round(56.25) == 56

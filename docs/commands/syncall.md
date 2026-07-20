@@ -32,22 +32,26 @@ because it only looks at what changed instead of re-reading the whole project.
 ```text
 /postman:syncall
 
-| Status | Method | Route | Target | Auth | Body | Response | Source |
-|---|---|---|---|---|---|---|---|
-| [NEW] | POST | /payments | Root Collection | Bearer | PaymentRequest | PaymentResponse | [code] |
-| [MODIFIED] | GET | /orders/{id} | Root Collection | Bearer | N/A | OrderResponse | [code] |
-| [DEPRECATED] | DELETE | /legacy/import | Root Collection | — | N/A | — | [code] |
+Collection: Acme Backend
+Plan: 21 new · 2 modified
 
-Summary: 21 new · 2 modified · 1 deprecated
+[NEW] POST /payments   → (root)   ✓ verified (app/payments.py:12)
+[MODIFY] GET /orders/{id}   → (root)   ✓ verified (app/orders.py:40)
+...
 
-Write? [y / n]
+Write to Postman? Re-run with confirm=true to apply.
 ```
 
 Every route in a run lands in the same target: the collection root by default, or
-`--into <path>` if you gave one. Routes are resolved
-[OpenAPI-first with per-route fallback to code parsing](../architecture/resolver.md), and
-each request is tagged `[openapi]` or `[code]` in the diff so you can see at a glance
-which ones came from the lower-confidence path.
+`--into <path>` if you gave one. Each line is labelled `✓ verified`, `~ stale`, or
+`⚠ CITATION DOES NOT MATCH CODE` so you can see at a glance which requests are backed by
+real code before you write anything.
+
+!!! note "Routes removed from code"
+    `syncall` doesn't currently mark a request deprecated just because the route behind
+    it disappeared from the codebase — it only writes what it finds. Removing a stale
+    request from the collection by hand is the workaround until this lands. Track it in
+    [ROADMAP.md](https://github.com/logesh-works/postman-mcp/blob/main/ROADMAP.md).
 
 ## Free-form instructions
 

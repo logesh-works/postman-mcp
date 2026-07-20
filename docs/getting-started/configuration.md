@@ -1,10 +1,10 @@
 # Configuration
 
-All configuration lives in one file at your project root, `postman-mcp.json`. It's
+All configuration lives in one file at your project root, `postman/config.json`. It's
 small, stable, and safe to commit. It holds config and a last-update marker, nothing
 else, and never a secret.
 
-## `postman-mcp.json`
+## `postman/config.json`
 
 ```json
 {
@@ -18,7 +18,8 @@ else, and never a secret.
     "defaultInto": "/",
     "apiKeyRef": "keychain:postman-mcp",
     "responseStyle": "single",
-    "generateTests": false
+    "generateTests": false,
+    "engine": "v3"
   },
   "lastUpdate": {
     "commit": "a1b2c3d",
@@ -42,13 +43,14 @@ else, and never a secret.
 | `config.allowLowConfidence` | Whether an endpoint below `approvalThreshold` can still be synced by naming it explicitly, instead of being blocked outright. `false` by default. |
 | `config.writeProtection` | `normal` (default), `readonly` (every write is refused), or `approve-all` (nothing writes unless named explicitly, even endpoints that would otherwise auto-sync) — see below. |
 | `config.planTtlHours` | How long a compiled plan stays valid before it must be recompiled. `24` by default. |
+| `config.engine` | Advanced, rarely touched. Selects which deterministic discovery source backs the lower-level `get_contract`/`submit_model` tool surface when no model is submitted: `"v3"` (default for new `init`s, index-based route identity) or `"v2"` (framework parsers, full schema/auth detection). The seven `/postman:*` commands are unaffected either way — see [the engineering handoff](../architecture/handoff.md). |
 | `lastUpdate.commit` | Last-synced commit. This is what `syncchanges` diffs against when you don't pass `--last` or `--since`. |
 | `lastUpdate.at` | Timestamp of the last sync. |
 
 The last four fields are read only by the `get_contract`/`submit_model`/`plan`/`apply` tool
 surface (a separate, non-slash-command way to sync described in
-[`docs/architecture/handoff.md`](../architecture/handoff.md)) — the six sync commands above
-don't consult them. An endpoint's gate score there determines what happens on `apply`:
+[`docs/architecture/handoff.md`](../architecture/handoff.md)) — the seven `/postman:*`
+commands don't consult them. An endpoint's gate score there determines what happens on `apply`:
 `auto` (≥90) syncs normally, `flag` (75–89) syncs but is marked in the diff, and below
 `approvalThreshold` it's excluded from the plan entirely unless named in
 `apply(approve=[...])`.
@@ -66,19 +68,19 @@ The raw key is stored by reference only, in one of these, in order of preference
 1. **OS credential store** (Keychain, Secret Service, or Credential Manager). The
    default. Referenced as `keychain:postman-mcp`.
 2. **Environment variable** `POSTMAN_API_KEY`, referenced as `env:POSTMAN_API_KEY`.
-3. **Gitignored secret file** `.postman-mcp.secret`, the fallback. `init` adds it to
+3. **Gitignored secret file** `postman/secret`, the fallback. `init` adds it to
    `.gitignore` automatically.
 
 You choose which one during `init`; the keychain option is offered first. The secret
 resolver reads the value at run time, and the key is never written into
-`postman-mcp.json`.
+`postman/config.json`.
 
 ## The setup contract
 
 `postman-mcp doctor` checks six things. Setup is correct when all of them hold:
 
 1. `postman-mcp` CLI is on PATH (`postman-mcp version` works).
-2. `postman-mcp.json` exists at the project root with a valid `collectionId`.
+2. `postman/config.json` exists at the project root with a valid `collectionId`.
 3. The API key resolves from its `apiKeyRef` and `GET /me` returns 200.
 4. The MCP server is registered in Claude Code and `postman-mcp serve` boots clean.
 5. The slash-command files exist under `.claude/commands/postman/`.
@@ -88,6 +90,6 @@ If any one fails, `doctor` names it and gives you the one command to fix it.
 
 ## Committing it
 
-Commit `postman-mcp.json` so your team shares the same target config. It contains no
-secrets, just a reference and a collection id. Make sure `.postman-mcp.secret` is in your
+Commit `postman/config.json` so your team shares the same target config. It contains no
+secrets, just a reference and a collection id. Make sure `postman/secret` is in your
 `.gitignore` (`init` does this for you).

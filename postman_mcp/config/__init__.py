@@ -1,4 +1,4 @@
-"""Config store — read/write the small ``postman-mcp.json`` side-reference."""
+"""Config store — read/write the small ``postman/config.json`` side-reference."""
 
 from postman_mcp.config.store import (
     ConfigError,

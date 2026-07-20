@@ -25,7 +25,7 @@ from postman_mcp.models import RequestDiff, RouteModel
 from postman_mcp.postman import merge
 from postman_mcp.verify.report import VerificationReport
 
-PLANS_DIRNAME = ".postman-mcp/plans"
+PLANS_DIRNAME = "postman/plans"
 ENGINE_VERSION = "1"
 DEFAULT_PLAN_TTL_HOURS = 24
 

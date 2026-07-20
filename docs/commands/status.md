@@ -27,16 +27,16 @@ collection that has drifted from the code, without writing anything. It's
 ```text
 /postman:status
 
-DRIFT CHECK (read-only, nothing will be written)
+Collection: Acme Backend
+Plan: 1 new · 1 modified
 
-| Status | Method | Route | Target | Auth | Body | Response | Source |
-|---|---|---|---|---|---|---|---|
-| [NEW] | POST | /payments/refund | Root Collection | Bearer | RefundRequest | RefundResponse | [code] |
-| [MODIFIED] | GET | /orders/{id} | Root Collection | Bearer | N/A | OrderResponse | [openapi] |
-| [DEPRECATED] | DELETE | /legacy/import | Root Collection | — | N/A | — | [code] |
+[NEW] POST /payments/refund   → (root)   ✓ verified (app/payments.py:58)
+[MODIFY] GET /orders/{id}   → (root)   ✓ verified (app/orders.py:40)
 
-Summary: 1 new · 1 modified · 1 deprecated
+Write to Postman? Re-run with confirm=true to apply.
 ```
 
-Since `status` never writes, it's safe to run as often as you like. It's also the basis
-for the [CI drift-gate](../roadmap.md) planned down the line.
+`status` calls the same discovery and verification path as every sync command, but the
+turn ends after showing this preview — it never calls the tool again with `confirm: true`.
+Since it never writes, it's safe to run as often as you like. It's also the basis for the
+[CI drift-gate](../roadmap.md) planned down the line.

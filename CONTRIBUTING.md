@@ -45,17 +45,21 @@ pytest --cov           # with coverage (target: 80%+)
 
 All tests mock the Postman REST API with `respx`. No real Postman API key is needed and
 no network calls are made. Never commit a real API key or a populated
-`postman-mcp.json` / `.postman-mcp.secret`.
+`postman/config.json` / `postman/secret`.
 
 ## Architecture in one paragraph
 
-The five sync commands aren't five separate implementations. They're one engine plus
-five selectors. The engine (`engine/builder.py`) turns a normalized `RouteModel` into a
-Postman Collection v2.1 item. The input resolver (`input/resolver.py`) produces that
-`RouteModel` from whichever source is available: an OpenAPI spec when one exists,
-framework code parsing otherwise. The service layer (`service/`) orchestrates read, diff,
-confirm, write against the Postman client (`postman/`). See
-[docs/architecture/overview.md](docs/architecture/overview.md) for the full picture.
+The seven slash commands aren't separate implementations. Claude reads your code —
+using the deterministic repository index (`index/`, `retrieve/`) to find exactly what
+it needs — and authors the Postman request itself; the MCP server's job is to validate
+that, re-verify every citation against your actual source (`verify/`), diff it against
+the live collection (`postman/merge.py`), and write on confirm
+(`service/filesync.py`). A separate, still-supported pipeline generates the same kind of
+request deterministically from a framework parser instead (`engine/builder.py`,
+`input/resolver.py`, `input/parsers/`) — used by the lower-level, LLM-free tool surface
+and as an independent verification source. See
+[docs/architecture/overview.md](docs/architecture/overview.md) and
+[docs/architecture/handoff.md](docs/architecture/handoff.md) for the full picture.
 
 ## Pull request guidelines
 

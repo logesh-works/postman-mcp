@@ -1,8 +1,8 @@
 # `/postman:syncapi`: sync one API
 
 The most surgical of the five commands. It syncs exactly one route and touches nothing
-else. Every other command is just a different way of picking which routes to hand to the
-same engine that this one calls directly.
+else. Every other command is just a different way of picking which routes go through the
+same validate → verify → diff → confirm → write pipeline this one uses directly.
 
 ## Usage
 
@@ -38,30 +38,37 @@ lists the candidates and asks you to be specific. It never guesses.
 ```
 
 ```text
-| Status | Method | Route | Target | Auth | Body | Response | Source |
-|---|---|---|---|---|---|---|---|
-| [NEW] | POST | /payments | payments | Bearer | PaymentRequest | PaymentResponse | [code] |
+Collection: Acme Backend
+Plan: 1 new · 0 modified
 
-Summary: 1 new · 0 modified · 0 deprecated
+[NEW] POST /payments   → payments   ✓ verified (app/payments.py:12)
 
-Write? [y / n]
+Write to Postman? Re-run with confirm=true to apply.
 ```
+
+Each line is labelled `✓ verified` (the citation matches your code), `~ stale` (the code
+moved since it was cited), or `⚠ CITATION DOES NOT MATCH CODE` — so you can see which
+requests are backed by real code before you say yes. An endpoint that fails verification
+is excluded from the write unless you name it explicitly.
 
 ## What happens, step by step
 
-1. **Resolve the target.** The resolver finds `create_payment` and turns it into a
-   normalized route model.
-2. **Parse.** Extract method, path, body type, auth middleware, response models, and
-   docstring.
-3. **Build.** The [engine](../architecture/engine.md) assembles the full request object.
-4. **Read the collection.** `GET` the collection and scan its structure for an existing
-   `POST /payments`. If it's not found, this is a new request. Resolve `--into payments`
-   to a folder, creating it if it doesn't exist.
-5. **Diff.** Render the preview in Claude Code.
-6. **Confirm.** The diff is always shown. A non-default collection target additionally
+1. **Find the endpoint.** Claude uses the repository index to locate `create_payment`
+   and read the exact code it needs — the handler, its request/response types, and its
+   route registration — without reading the project unbounded.
+2. **Author the request.** Claude writes a complete Postman request (method, path,
+   params, body, auth, responses) into `collection.json`, plus a `file:line` citation for
+   every claimed fact in `metadata.json`.
+3. **Validate and verify.** The MCP server checks the collection is well-formed,
+   re-reads every cited line to confirm it matches what Claude claimed, and grounds every
+   claimed request/response field against the real DTO/model class.
+4. **Diff.** The server reads the live collection, matches `POST /payments` by
+   `METHOD + normalized path`, and renders the before/after preview — a new request if no
+   match is found, resolving `--into payments` to a folder (creating it if needed).
+5. **Confirm.** The diff is always shown. A non-default collection target additionally
    needs `--confirm`.
-7. **Write.** Merge into the collection JSON and `PUT /collections/{uid}`.
-8. **Record.** Update `lastUpdate` in `postman-mcp.json`. Claude shows the write result
+6. **Write.** Merge into the collection JSON and `PUT /collections/{uid}`.
+7. **Record.** Update `lastUpdate` in `postman/config.json`. Claude shows the write result
    and stops; no further analysis or follow-on commentary.
 
 Updating an existing route follows the same steps. Step 4 finds the existing request

@@ -2,7 +2,8 @@
 
 ``init`` writes the project-scoped ``.mcp.json`` entry directly — deterministic, works
 whether or not the ``claude`` CLI is on PATH — and additionally calls ``claude mcp add``
-when the CLI is available. Also keeps ``.gitignore`` covering the secret file.
+when the CLI is available. Also keeps ``.gitignore`` covering this tool's internal
+``postman/`` cache/state paths (never ``postman/config.json`` or ``postman/sync/``).
 """
 
 from __future__ import annotations
@@ -69,13 +70,28 @@ def is_server_registered(project_root: Path | str = ".") -> bool:
     return SERVER_NAME in data.get("mcpServers", {})
 
 
+# Everything under postman/ except config.json and sync/ is this tool's internal
+# cache/state (index, models, plans, snapshots, audit log, the API key file) — never
+# meant to be committed. postman/config.json and postman/sync/ are deliberately left
+# out so they stay tracked.
+_GITIGNORE_LINES = [
+    SECRET_FILENAME,
+    "postman/index/",
+    "postman/models/",
+    "postman/plans/",
+    "postman/snapshots/",
+    "postman/audit.jsonl",
+]
+
+
 def ensure_gitignore(project_root: Path | str = ".") -> None:
-    """Ensure ``.postman-mcp.secret`` is gitignored."""
+    """Ensure this tool's internal ``postman/`` cache/state paths are gitignored."""
     path = Path(project_root) / ".gitignore"
-    line = SECRET_FILENAME
     existing = path.read_text(encoding="utf-8") if path.exists() else ""
-    if line in existing.splitlines():
+    existing_lines = set(existing.splitlines())
+    missing = [line for line in _GITIGNORE_LINES if line not in existing_lines]
+    if not missing:
         return
     prefix = "" if existing.endswith("\n") or not existing else "\n"
     with path.open("a", encoding="utf-8") as fh:
-        fh.write(f"{prefix}{line}\n")
+        fh.write(prefix + "\n".join(missing) + "\n")

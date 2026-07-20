@@ -27,9 +27,16 @@ coverage.xml
 # MkDocs build output (the docs/ *source* is tracked; only the built site is ignored)
 site/
 
-# postman-mcp runtime artifacts (also added by `init`)
-.postman-mcp.secret
-postman-mcp.json
+# postman-mcp runtime artifacts (also added by `init`/`ensure_gitignore`)
+postman/secret
+postman/index/
+postman/models/
+postman/plans/
+postman/snapshots/
+postman/audit.jsonl
+# this repo doesn't dogfood a real target collection — ignore local test residue too
+postman/config.json
+postman/sync/
 
 # OS / editor
 .DS_Store
@@ -37,3 +44,6 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# Local Claude Code state (permissions, session locks) — machine-specific, not project config
+.claude/

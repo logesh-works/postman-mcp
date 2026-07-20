@@ -89,4 +89,12 @@ def test_ensure_gitignore_adds_secret_once(tmp_path):
     ensure_gitignore(tmp_path)
     ensure_gitignore(tmp_path)  # idempotent
     content = (tmp_path / ".gitignore").read_text(encoding="utf-8")
-    assert content.count(".postman-mcp.secret") == 1
+    assert content.count("postman/secret") == 1
+    # internal cache/state dirs are ignored too, but not the committed config/sync dirs
+    assert "postman/index/" in content
+    assert "postman/models/" in content
+    assert "postman/plans/" in content
+    assert "postman/snapshots/" in content
+    assert "postman/audit.jsonl" in content
+    assert "postman/config.json" not in content
+    assert "postman/sync/" not in content

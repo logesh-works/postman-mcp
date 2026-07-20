@@ -6,13 +6,35 @@ returned by `get_contract()` — and submit it with `submit_model`. You do **not
 the Postman API yourself, and you never write to Postman directly: the MCP server
 validates, verifies, and gates everything you submit before any write can happen.
 
+## Use `index()` and `context()` first
+
+Before reading files by hand, call `index()` once — it returns a framework-blind
+repository map (services, languages, files with decorated/annotated symbols, an
+evidence-corpus summary) built deterministically at zero cost to you. Then, for each
+endpoint or handler file, call `context(target, budget=8000)` instead of opening files
+yourself: `target` is a symbol/function name, `"path/to/file.py"`, `"file.py::symbol"`,
+or `"METHOD /path"`. It returns exactly the code that matters — the handler, its
+DTO/type closure, the service functions it calls, the router mount chain, and matching
+test/OpenAPI witnesses — as chunks headed `## file:start-end [role]`. **Those headers
+are your citations**: copy the file/line span directly into `Evidence` instead of
+counting lines by hand, which is the single biggest source of citation mismatches.
+
+If `context()` can't resolve a target (unusual mount styles, a framework it hasn't
+seen), fall back to reading the repository directly with your own tools — the rules
+below still apply either way, and `index()`'s file list is still a good starting map.
+Multi-hop composed paths (a router's own prefix plus where it's mounted) are something
+you're expected to compose *semantically* from the mount-chain chunks `context()`
+gives you — that composition is exactly the kind of reasoning this workflow leaves to
+you rather than to string-matching.
+
 ## The five rules
 
-1. **Enumerate before you describe.** Find every route registration site first
-   (grep patterns per framework are in `frameworks/<name>.md`), then walk each mount
-   chain upward to its entrypoint (`include_router`, `app.use`, `register_blueprint`,
-   `include()`, `@Controller` + `@RequestMapping`, `RouterModule`, global prefixes).
-   Never emit an endpoint whose full chain you have not actually read.
+1. **Enumerate before you describe.** Find every route registration site first — via
+   `index()`/`context()` (preferred) or, per-framework, the grep patterns in
+   `frameworks/<name>.md` — then walk each mount chain upward to its entrypoint
+   (`include_router`, `app.use`, `register_blueprint`, `include()`, `@Controller` +
+   `@RequestMapping`, `RouterModule`, global prefixes). Never emit an endpoint whose
+   full chain you have not actually read.
 
 2. **Cite as you go.** Every fact you assert — a route's existence, its path, its
    body shape, its auth — needs an `Evidence` entry: `file`, `line_start`, `line_end`,
@@ -52,9 +74,9 @@ every score itself and ignores what you wrote.
 
 1. Call `get_contract()` once per session to fetch this playbook, the schema, and the
    framework-specific guide(s) for the repo you're analyzing.
-2. Read the repo with your own tools (grep for registration signals, read the files
-   you find, follow imports).
-3. Write the APIM JSON to a file (`.postman-mcp/models/draft.json` is a reasonable
+2. Call `index()` once, then `context(target)` per endpoint/file (see above). Fall back
+   to reading the repo with your own tools only where `context()` can't resolve a target.
+3. Write the APIM JSON to a file (`postman/models/draft.json` is a reasonable
    default) and call `submit_model(model_path=...)`.
 4. Read the returned `VerificationReport`. If any endpoint was rejected or warned,
    the report names the exact file/line/check — re-read that code and resubmit a

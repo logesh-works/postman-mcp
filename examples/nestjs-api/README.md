@@ -25,17 +25,18 @@ postman-mcp init        # detects NestJS; uses /api-json (openapi)
 ```text
 /postman:syncall
 
-| Status | Method | Route | Target | Auth | Body | Response | Source |
-|---|---|---|---|---|---|---|---|
-| [NEW] | POST | /payments | Root Collection | Bearer | CreatePaymentDto | 201 | [openapi] |
-| [NEW] | GET | /payments/{id} | Root Collection | Bearer | N/A | 200 | [openapi] |
+Collection: <your collection>
+Plan: 2 new · 0 modified
 
-Write? [y / n]
+[NEW] POST /payments   → (root)   ✓ verified (openapi)
+[NEW] GET /payments/{id}   → (root)   ✓ verified (openapi)
+
+Write to Postman? Re-run with confirm=true to apply.
 ```
 
-The `Response` column shows the status code rather than a type name, because this
-controller has no `@ApiResponse({ type: ... })` decorator. Add one if you want the spec
-(and the diff) to carry a named response shape instead.
+The response is saved by status code rather than a named type, because this controller
+has no `@ApiResponse({ type: ... })` decorator. Add one if you want the spec (and the
+synced response) to carry a named response shape instead.
 
 !!! note
     Without a spec, the code path uses **heuristic TypeScript parsing** (no Python TS AST)

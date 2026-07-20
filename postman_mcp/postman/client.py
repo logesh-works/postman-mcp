@@ -10,6 +10,7 @@ API surface used:
 | Read collection              | GET  /collections/{uid}        |
 | Write collection             | PUT  /collections/{uid}        |
 | Create collection            | POST /collections              |
+| List / read environment      | GET  /environments, GET /environments/{uid} |
 | Create / update environment  | POST /environments, PUT /environments/{uid} |
 """
 
@@ -135,6 +136,23 @@ class PostmanClient:
         return self._request(
             "POST", "/collections", params=params, json={"collection": collection}
         ).get("collection", {})
+
+    def list_environments(
+        self, workspace: Optional[str] = None
+    ) -> list[dict[str, Any]]:
+        params = {"workspace": workspace} if workspace else None
+        return self._request("GET", "/environments", params=params).get(
+            "environments", []
+        )
+
+    def get_environment(self, uid: str) -> dict[str, Any]:
+        """``GET /environments/{uid}`` — returns ``{}`` if the environment is gone
+        (deleted by the user since it was last synced) rather than raising, so the
+        caller can fall back to a name-based lookup or create a new one."""
+        try:
+            return self._request("GET", f"/environments/{uid}").get("environment", {})
+        except PostmanError:
+            return {}
 
     def create_environment(
         self, environment: dict[str, Any], workspace: Optional[str] = None

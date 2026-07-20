@@ -25,11 +25,19 @@ network calls are made.
 |---|---|
 | Change how a request is built | `engine/builder.py`, `engine/examples.py`, `engine/tests.py` |
 | Improve OpenAPI mapping | `input/openapi.py` |
-| Add/fix a framework parser | `input/parsers/` |
+| Add/fix a framework parser (V2 pipeline) | `input/parsers/` |
 | Change matching / merge behavior | `postman/merge.py` |
 | Change the diff output | `diff/render.py` |
 | Touch a command's orchestration | `service/`, `server.py` |
 | Change setup (`init` / `doctor`) | `cli.py`, `setup/` |
+| Improve repo indexing | `index/` — see [repository index & retrieval](../architecture/indexing.md) |
+| Improve context retrieval | `retrieve/` — same page |
+
+New framework support generally belongs in Claude's own understanding of the
+framework, not in a new parser — the seven slash commands work on any framework Claude
+can read. A new parser under `input/parsers/` is still worth adding for the
+deterministic, LLM-free tool surface described in
+[the engineering handoff](../architecture/handoff.md); see that page before starting one.
 
 ## Conventions
 

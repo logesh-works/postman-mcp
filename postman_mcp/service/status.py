@@ -1,5 +1,10 @@
 """``status`` — read-only drift check. ``syncall``'s diff minus the write.
 
+Legacy discovery path — see the module docstring in ``service/sync.py``. The
+``/postman:status`` slash command calls ``sync_files(confirm=false)`` instead; this
+module remains for direct/scripted callers and shares the same ``postman/merge.py``
+diff engine, so both report identical new/modified/unchanged verdicts.
+
 Shows what *would* sync — new / modified / deprecated routes and anything drifted from
 code — without writing anything (no confirm step).
 """

@@ -14,8 +14,9 @@ If `env_name` is omitted, a name is generated from your framework, like `fastapi
 ## What it generates
 
 - `{{base_url}}` and `{{token}}`: the variables every synced request depends on.
-- Inferred variables, pulled from headers and query params the parser found in your
-  routes. Always from code, never guessed from a running server.
+- Inferred variables: base URLs, auth tokens, API keys, and other config-driven values
+  Claude finds by reading your project's configuration and the requests that reference
+  them. Always from code, never guessed from a running server.
 
 ## Secret handling
 

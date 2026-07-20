@@ -39,23 +39,31 @@ Postman MCP runs two things: a CLI (`postman-mcp`) for one-time setup, and an MC
 that Claude Code talks to while you work. You install it once per machine, run `init`
 once per project, and after that you only ever type slash commands inside Claude Code.
 
-Every sync command, no matter which one you call, ends up producing the same thing
-internally: a `RouteModel` for each route, which is just method + path + body + auth +
-responses in a normalized shape. That model can come from two places:
+**Claude does the reading and reasoning; Postman MCP does the checking and writing.**
+When you run a sync command, Claude reads your code — any framework, any language it
+understands — and writes three files into `postman/sync/`:
 
-- **An OpenAPI spec**, if your framework can emit one (FastAPI, NestJS with
-  `@nestjs/swagger`, Django REST Framework with `drf-spectacular`). This is the
-  high-confidence path because the spec is already typed and validated by the framework
-  itself.
-- **Parsing your code directly**, if there's no spec. This works for all six supported
-  frameworks and is the only path for Express, since Express has no native type system or
-  spec generator.
+- **`collection.json`** — a Postman Collection v2.1 it authors directly (folders,
+  requests, auth, examples).
+- **`metadata.json`** — a citation for every request: the exact `file:line` the endpoint
+  and each DTO field come from, hashed.
+- **`sync.config.json`** — the scope and target of this run.
 
-Whichever source a route comes from, the engine turns its `RouteModel` into one complete
-Postman Collection v2.1 item: the request (method, URL, headers, body, auth), the saved
-response, and optionally a test script. That's the whole pipeline. Seven slash commands
-exist on top of it; they just decide which routes go through it and where the result
-lands in your collection.
+The MCP server then does the parts that must be deterministic and trustworthy: it
+**validates** the collection is well-formed, **verifies** Claude didn't hallucinate by
+re-reading the exact lines it cited (and grounding every claimed request/response field
+against the real DTO class), **diffs** the result against your live Postman collection,
+and — only after you say yes — **merges and writes** it, preserving any test scripts and
+saved examples you added by hand. The MCP never parses your source or calls a model; it
+checks claims and writes. This is what makes it work on *any* framework without a
+per-framework parser, while still catching a wrong route or a made-up field before it
+reaches Postman.
+
+The seven slash commands differ only in *what* Claude analyzes (one endpoint, one file,
+the whole repo, what changed in git); they all funnel through the same
+validate → verify → diff → confirm → write pipeline. The contract Claude follows to do
+this is published by the MCP server itself, so any MCP-capable client can drive it, not
+just Claude Code.
 
 ## What happens when I run syncapi?
 
@@ -77,23 +85,26 @@ You run:
 /postman:syncapi create_payment --into payments
 ```
 
-Claude calls the `syncapi` tool, which resolves `create_payment` to its route, builds the
-Postman item, diffs it against what's already in your collection, and shows you the
-result without writing anything:
+Claude reads `create_payment` and its `PaymentRequest`/`PaymentResponse` DTOs, writes the
+request into `postman/sync/collection.json` with citations in `metadata.json`, and calls
+the `sync_files` tool. The MCP re-reads the cited lines to confirm the route and every
+field are real, diffs against your live collection, and shows you the result without
+writing anything:
 
 ```text
-| Status | Method | Route | Target | Auth | Body | Response | Source |
-|---|---|---|---|---|---|---|---|
-| [NEW] | POST | /payments | payments | Bearer | PaymentRequest | 201 | [code] |
+Collection: Acme Backend
+Plan: 1 new · 0 modified
 
-Summary: 1 new · 0 modified · 0 deprecated
+[NEW] POST /payments   → payments   ✓ verified (app/payments.py:12)
 
-Write? [y / n]
+Write to Postman? Re-run with confirm=true to apply.
 ```
 
-Say `y` and it writes. Say `n` and nothing happens. There's no flag to skip the diff. If
-you target something ambiguous (two routes match the same name), it lists the candidates
-and asks you to be specific instead of guessing which one you meant.
+Each endpoint is labelled `✓ verified` (citation matches the code), `~ stale` (code moved
+since cited), or `⚠ unverified` / `⚠ CITATION DOES NOT MATCH` — so you can see at a glance
+which requests are backed by real code before you say yes. A request whose citation
+doesn't match the code is excluded from the write unless you explicitly approve it. Say
+`y` and it writes; say `n` and nothing happens. There's no flag to skip the diff.
 
 ## What gets generated?
 
@@ -147,7 +158,7 @@ A few things worth pointing out, because they're not obvious from the JSON:
   `401` was invented and attached. That's the default (`responseStyle: single`) and it's
   deliberate, not a gap: a Postman collection full of speculative error responses nobody
   asked for is worse than one with none. You can opt into `minimal` (success + one error)
-  or `full` (every declared 2xx plus a standard error set) in `postman-mcp.json` if you
+  or `full` (every declared 2xx plus a standard error set) in `postman/config.json` if you
   want more.
 - No test script is attached. Test generation is off by default
   (`generateTests: false`); turn it on if you want status/schema assertions added
@@ -155,9 +166,7 @@ A few things worth pointing out, because they're not obvious from the JSON:
 
 ## What does not work yet?
 
-`2.0.0` is the current release, built on the `0.1.0` MVP (tagged, published to PyPI,
-live-run validated), the `1.0.0` `--prompt` layer, and `1.1.0`'s extraction-pipeline
-hardening. Being upfront about what's still a gap:
+Being upfront about the current gaps:
 
 - **Express and NestJS code parsing is regex/heuristic, not a real AST.** Neither
   language has a parser this project depends on, so body and auth detection is
@@ -175,73 +184,74 @@ hardening. Being upfront about what's still a gap:
   reported as unresolved rather than guessed at.
 - **No CI integration yet.** No GitHub Action to fail a PR on drift, no Newman runner for
   the generated tests. See [ROADMAP.md](ROADMAP.md) for the full list of known gaps.
-- **The submitted-model tool surface has no slash command.** `get_contract`,
-  `submit_model`, `verify_model`, `plan`, `apply`, `snapshot`, `rollback`, and `audit`
-  exist and are callable as MCP tools; there's no `/postman:*` wrapper for them yet, and
-  the six commands above don't route through them. See
-  [`docs/architecture/handoff.md`](docs/architecture/handoff.md) for what this pipeline
-  does and its other current limitations.
+- **An additional, verification-focused tool surface has no slash command yet.**
+  Alongside the seven commands above, the MCP server also exposes a lower-level tool
+  surface for MCP clients that want to submit an API model directly and get it verified,
+  planned, and applied as separate steps, with snapshot/rollback support. It's callable
+  today as direct MCP tool calls; there's no `/postman:*` wrapper for it yet. See
+  [`docs/architecture/handoff.md`](docs/architecture/handoff.md) for what it does and its
+  other current limitations.
 
 ## Architecture
 
-Two layers, cleanly separated. **Claude Code is the intelligence layer**; **Postman MCP
-is the deterministic execution layer.**
+Two layers, cleanly separated. **Claude Code does the reading and reasoning; Postman MCP
+does the checking and writing.**
 
 ```text
 You
  │  slash command (/postman:prompt for free-form instructions)
  ▼
-Claude Code            ← intelligence: reasoning, instruction → overrides patch
- │  MCP tool call (overrides patch, no raw prose)
+Claude Code            ← reads your code, authors collection.json + metadata.json
+ │  sync_files(confirm)
  ▼
-Postman MCP Server (local)   ← deterministic: parse, build, diff, merge, write
- │
- ┌──────────┬──────────┬───────────┼──────────┬───────────┐
- ▼          ▼          ▼           ▼          ▼           ▼
-Command    Input      Engine     Postman      Git        Config +
-router     resolver  (builder)   client      reader      Secret store
-         (OpenAPI/                (REST)    (diff since
-          code)                              commit)
+Postman MCP Server (local)   ← deterministic: validate, verify citations, ground
+ │                              fields, diff, merge, write
+ ┌──────────┬──────────┬───────────┬──────────┐
+ ▼          ▼          ▼           ▼          ▼
+Repo       Citation   Postman     Merge      Config +
+index      + field    client      engine     Secret store
+           verify     (REST)
 ```
 
 The sync commands (`syncapi`, `sync`, `syncall`, `syncchanges`, and `prompt` as a
 natural-language front-end for all four) aren't separate implementations. They're
-different ways of picking *which* routes to sync (one route, a whole file, everything
-changed since your last sync, the whole codebase); all of them hand their routes to the
-same input resolver and the same engine. Fix a bug in the engine and every command gets
-the fix at once. Full write-up in the
+different ways of picking *which* routes Claude analyzes (one route, a whole file,
+everything changed since your last sync, the whole codebase); all of them go through the
+same validate → verify → diff → confirm → write pipeline on the MCP side. Fix a bug there
+and every command gets the fix at once. Full write-up in the
 [architecture docs](https://logesh-works.github.io/postman-mcp/architecture/overview/).
 
 The MCP server runs **no LLM** and interprets no natural language. Anything you write in
 `/postman:prompt` is read by Claude *before* it calls the tool — it never reaches the
-engine as prose. See [AI-assisted synchronization](#ai-assisted-synchronization) below.
+server as prose. See [AI-assisted synchronization](#ai-assisted-synchronization) below.
 
 ## AI-assisted synchronization
 
-For free-form, natural-language sync, use the **`/postman:prompt`** command. It's the
-intelligence front-end: Claude reads the instruction, not the engine.
+For free-form, natural-language sync, use the **`/postman:prompt`** command. Claude reads
+the instruction, not the MCP server.
 
 ```bash
 /postman:prompt "Sync createPayment as a Stripe API architect"
 ```
 
 Claude reads the instruction while preparing the synchronization — it picks the right
-tool (`syncapi` / `sync` / `syncchanges` / `syncall`) and target, shapes how it frames the
-diff and which examples it favors, and turns concrete asks (extra error responses,
-headers, an edited description) into a structured `overrides` patch. Then it calls the
-deterministic tool. The flow is:
+scope (`syncapi` / `sync` / `syncchanges` / `syncall`) and target, shapes how it frames
+the diff and which examples it favors, and folds concrete asks (extra error responses,
+headers, an edited description) directly into the `collection.json`/`metadata.json` it
+authors. Then it calls the deterministic tool. The flow is:
 
 ```text
-You → Claude Code → (instruction → overrides patch) → MCP tool call → Postman MCP
+You → Claude Code (reads instruction + code, authors the collection) → MCP tool call → Postman MCP
 ```
 
 What this means in practice:
 
 - **The instruction influences Claude.** Reasoning, terminology, persona, target
-  selection, and the `overrides` content (request/response *content* of matched items).
-- **It never influences engine structure.** Route matching, identity, auth detection,
-  schemas, response contracts, and merge behavior are computed deterministically from your
-  code, regardless of what the instruction says.
+  selection, and the request/response content Claude writes for matched items.
+- **It never influences verification.** Citations either match your code or they don't;
+  route identity, auth detection, and field grounding are computed deterministically from
+  your code, regardless of what the instruction says. Content the instruction adds with
+  no citation is shown as unverified in the diff — honestly, not silently trusted.
 - **Postman MCP stays deterministic and LLM-agnostic.** It does not run a model, has no
   `prompt` parameter, and depends on no Anthropic/OpenAI API.
 
@@ -305,6 +315,14 @@ through slash commands.
 Terminal-only commands: `postman-mcp init`, `postman-mcp doctor`, `postman-mcp serve`,
 `postman-mcp version`.
 
+Every slash command above goes through the same validate → verify → diff → confirm →
+write pipeline described in [How does it work?](#how-does-it-work). MCP clients that
+prefer deterministic parsing over Claude-driven discovery can call the underlying
+tools directly instead of going through a slash command; both paths share the exact
+same diff/merge engine, so "new / modified / unchanged" is decided identically either
+way. See [Architecture](https://logesh-works.github.io/postman-mcp/architecture/overview/)
+for the full tool surface.
+
 ## Examples
 
 Each example is a small, runnable app. Clone the repo and look at the README in any of
@@ -323,7 +341,7 @@ framework:
 
 ## Configuration
 
-Setup writes a `postman-mcp.json` to your project root. It's small, meant to be
+Setup writes a `postman/config.json` to your project root. It's small, meant to be
 committed, and never holds a secret directly, just a reference to where the key lives
 (OS keychain, an env var, or a gitignored file). See
 [Configuration](https://logesh-works.github.io/postman-mcp/getting-started/configuration/)
@@ -343,13 +361,10 @@ for every field.
 Details and the specific known limits for each are in the
 [framework guides](https://logesh-works.github.io/postman-mcp/frameworks/fastapi/).
 
-## Release history
+## Release notes
 
-`1.0.0` got the full kernel working end to end, plus the Claude-guided `--prompt` layer.
-`1.1.0` hardened the extraction pipeline against real, messier codebases. `2.0.0`
-(current) closes the remaining parser gaps, adds Flask and Spring support, and adds the
-submitted-model tool surface described above.
-See [ROADMAP.md](ROADMAP.md) for the full history and the list of known gaps.
+See [CHANGELOG.md](CHANGELOG.md) for what shipped in each release, and
+[ROADMAP.md](ROADMAP.md) for what's next and the current list of known gaps.
 
 ## Contributing
 

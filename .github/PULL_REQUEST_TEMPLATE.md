@@ -36,5 +36,5 @@ Fixes #<!-- issue number, if any -->
 - [ ] My change matches the surrounding code style
 - [ ] I updated the docs (`docs/`) if I changed a command, flag, or config field
 - [ ] I added an entry under `## [Unreleased]` in `CHANGELOG.md`
-- [ ] No secrets, API keys, or populated `postman-mcp.json` are included
+- [ ] No secrets, API keys, or populated `postman/config.json` are included
 - [ ] CI is green

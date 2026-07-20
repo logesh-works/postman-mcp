@@ -1,4 +1,4 @@
-"""Read/write ``postman-mcp.json`` — the small, committable, secret-free side-reference.
+"""Read/write ``postman/config.json`` — the small, committable, secret-free side-reference.
 
 Holds config + a last-update marker only, never a mirror of what was pushed and
 **never a secret** (only ``apiKeyRef``).
@@ -7,14 +7,26 @@ Holds config + a last-update marker only, never a mirror of what was pushed and
 from __future__ import annotations
 
 import json
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
 from pydantic import BaseModel, Field
 
-CONFIG_FILENAME = "postman-mcp.json"
-SECRET_FILENAME = ".postman-mcp.secret"
+# Everything this tool owns lives under one visible top-level folder: postman/.
+# postman/config.json and postman/sync/ are meant to be committed and reviewed;
+# postman/secret, postman/index/, postman/models/, postman/plans/, postman/snapshots/,
+# and postman/audit.jsonl are internal cache/state (see setup/registration.py's
+# ensure_gitignore, which ignores those specifically and not the whole folder).
+POSTMAN_DIR = "postman"
+CONFIG_FILENAME = f"{POSTMAN_DIR}/config.json"
+SECRET_FILENAME = f"{POSTMAN_DIR}/secret"
+
+# Pre-reorg locations, kept only so _migrate_legacy_layout can find and move them.
+_LEGACY_CONFIG_FILENAME = "postman-mcp.json"
+_LEGACY_SECRET_FILENAME = ".postman-mcp.secret"
+_LEGACY_CACHE_DIR = ".postman-mcp"
 
 
 class ConfigError(Exception):
@@ -30,14 +42,26 @@ class ConfidencePolicyConfig(BaseModel):
 
 
 class ProjectConfig(BaseModel):
-    """The ``config`` block of ``postman-mcp.json``."""
+    """The ``config`` block of ``postman/config.json``."""
 
     framework: Optional[str] = None
     inputMode: str = "openapi"  # "openapi" | "code"
+    # V2→V3 migration flag (see docs/architecture/v3-proposal.md). "v2" = parser
+    # pipeline (current default) · "v3" = index/retrieval pipeline (Phase 2+).
+    # Phase 0 introduces the flag only; no behavior switches on it yet.
+    engine: str = "v2"
     openApiSource: Optional[str] = None
     workspace: Optional[str] = None
     collectionId: Optional[str] = None
+    # The Postman environment this project last created/updated (createenv/sync_env) —
+    # the "configured reference" that makes re-running createenv idempotent: found by
+    # this id first, so a later rename of environment.json's name still updates the
+    # same environment instead of creating a duplicate.
+    environmentId: Optional[str] = None
     defaultInto: str = "/"
+    # Directory the LLM-driven flow writes its artifacts to (collection.json,
+    # metadata.json, sync.config.json). Committable, git-diffable, regenerable.
+    syncDir: str = "postman/sync"
     apiKeyRef: str = "keychain:postman-mcp"  # reference only, never the key
     # Output shaping (owner preference; reversible):
     generateTests: bool = False  # add status/schema test scripts to requests
@@ -62,7 +86,7 @@ class LastUpdate(BaseModel):
 
 
 class PostmanMcpConfig(BaseModel):
-    """The full ``postman-mcp.json`` document."""
+    """The full ``postman/config.json`` document."""
 
     version: int = 1
     config: ProjectConfig = Field(default_factory=ProjectConfig)
@@ -75,7 +99,47 @@ class PostmanMcpConfig(BaseModel):
         )
 
 
+def _migrate_legacy_layout(project_root: Path | str = ".") -> None:
+    """Move pre-reorg files/dirs into ``postman/`` (idempotent, best-effort).
+
+    Older installs scattered their state at repo root (``postman-mcp.json``,
+    ``.postman-mcp.secret``, ``.postman-mcp/``). Run automatically on every config
+    read so existing projects pick up the new layout without a manual step.
+    """
+    root = Path(project_root)
+
+    legacy_config = root / _LEGACY_CONFIG_FILENAME
+    new_config = root / CONFIG_FILENAME
+    if legacy_config.exists() and not new_config.exists():
+        new_config.parent.mkdir(parents=True, exist_ok=True)
+        legacy_config.rename(new_config)
+
+    legacy_secret = root / _LEGACY_SECRET_FILENAME
+    new_secret = root / SECRET_FILENAME
+    if legacy_secret.exists() and not new_secret.exists():
+        new_secret.parent.mkdir(parents=True, exist_ok=True)
+        legacy_secret.rename(new_secret)
+
+    legacy_cache = root / _LEGACY_CACHE_DIR
+    if legacy_cache.is_dir():
+        for name in ("index", "models", "plans", "snapshots"):
+            src, dst = legacy_cache / name, root / POSTMAN_DIR / name
+            if src.exists() and not dst.exists():
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(src), str(dst))
+        audit_src = legacy_cache / "audit.jsonl"
+        audit_dst = root / POSTMAN_DIR / "audit.jsonl"
+        if audit_src.exists() and not audit_dst.exists():
+            audit_dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(audit_src), str(audit_dst))
+        try:
+            legacy_cache.rmdir()  # only succeeds once empty
+        except OSError:
+            pass
+
+
 def config_path(project_root: Path | str = ".") -> Path:
+    _migrate_legacy_layout(project_root)
     return Path(project_root) / CONFIG_FILENAME
 
 
@@ -96,6 +160,7 @@ def load_config(project_root: Path | str = ".") -> PostmanMcpConfig:
 def save_config(cfg: PostmanMcpConfig, project_root: Path | str = ".") -> Path:
     """Write config as pretty, stable JSON (committable)."""
     path = config_path(project_root)
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(cfg.model_dump(), indent=2) + "\n", encoding="utf-8"
     )

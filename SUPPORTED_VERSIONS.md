@@ -22,8 +22,9 @@ recommended path.
 
 | Version | Status |
 |---|---|
-| `2.0.x` | ✅ Supported |
-| `1.1.x` | ❌ Not supported (superseded by `2.0.0`) |
+| `3.0.x` | ✅ Supported |
+| `2.0.x` | ❌ Not supported (superseded by `3.0.0`) |
+| `1.1.x` | ❌ Not supported (superseded) |
 | `1.0.x` | ❌ Not supported (superseded) |
 | `0.1.x` | ❌ Not supported (superseded) |
 

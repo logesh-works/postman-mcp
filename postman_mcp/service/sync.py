@@ -1,5 +1,13 @@
 """Sync orchestration — the five selectors over one engine.
 
+**Legacy discovery path.** This module discovers routes itself (code parsing / OpenAPI,
+via ``input/resolver.py``) with no LLM and no citations — kept for direct/scripted MCP
+callers, not what the shipped slash commands use (they call ``get_sync_contract`` then
+``service/filesync.py::sync_from_files``, the LLM-driven V3 path). Both paths hand their
+routes to the exact same diff/merge engine (``postman/merge.py``), so "is this
+new/modified/unchanged" is answered identically either way — there is exactly one
+authoritative answer to that question, just two ways of finding routes to ask it about.
+
 Every write-capable entry follows the two-phase ``confirm`` contract: with
 ``confirm=False`` it returns the rendered diff and writes nothing; with ``confirm=True``
 it re-runs and performs the merge + ``PUT``. All four selectors funnel
@@ -224,8 +232,10 @@ def _run_sync(
         change = merge.apply_route(working, item, route, into_path)
         if change is ChangeType.NEW:
             new += 1
-        else:
+        elif change is ChangeType.MODIFIED:
             mod += 1
+        # ChangeType.UNCHANGED: apply_route already left this item untouched — not
+        # counted as an update, so the completion summary doesn't overstate what changed.
 
     try:
         ctx.client.update_collection(ctx.collection_id, working)
@@ -274,10 +284,16 @@ def _completion_summary(new: int, mod: int, into_path: str) -> str:
     return "\n".join(lines)
 
 
-def _record_sync(ctx: SyncContext) -> None:
-    from postman_mcp.git.reader import current_commit
+def _record_sync(ctx: SyncContext, commit: Optional[str] = "__unset__") -> None:
+    """Record the sync marker. ``commit`` lets a caller that already resolved the
+    current commit (e.g. for verification earlier in the same call) pass it through
+    instead of shelling out to git a second time — each `git` subprocess spawn is a
+    real cost in restricted environments (AV/EDR scanning of child processes), so a
+    single sync operation should never pay it twice."""
+    if commit == "__unset__":
+        from postman_mcp.git.reader import current_commit
 
-    commit = current_commit(ctx.project_root)
+        commit = current_commit(ctx.project_root)
     ctx.config.mark_synced(commit)
     save_config(ctx.config, ctx.project_root)
 

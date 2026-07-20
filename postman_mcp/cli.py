@@ -13,6 +13,8 @@ business logic — that lives in the service layer.
 
 from __future__ import annotations
 
+import os
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -20,6 +22,7 @@ import typer
 
 from postman_mcp import __version__
 from postman_mcp.config.store import (
+    CONFIG_FILENAME,
     ConfigError,
     PostmanMcpConfig,
     ProjectConfig,
@@ -58,7 +61,7 @@ app = typer.Typer(
 _KEY_REF_CHOICES = {
     "1": "keychain:postman-mcp",
     "2": "env:POSTMAN_API_KEY",
-    "3": "file:.postman-mcp.secret",
+    "3": "file:postman/secret",
 }
 
 
@@ -68,6 +71,35 @@ def _echo_ok(msg: str) -> None:
 
 def _echo_fail(msg: str) -> None:
     typer.secho(f"✗ {msg}", fg=typer.colors.RED)
+
+
+def _read_api_key() -> str:
+    """Read the Postman API key.
+
+    On a real terminal, prompts hidden (as before). ``hide_input=True`` prompts are
+    backed by ``getpass``, which on Windows reads directly from the console device —
+    it blocks forever if stdin is piped/redirected (CI, automation, `init < answers`)
+    since there's no console to read from. Detecting that case up front and reading
+    ``POSTMAN_API_KEY`` from the environment instead (or failing fast with a clear
+    message if it isn't set) means `init` can never hang waiting for input that can't
+    arrive.
+    """
+    if sys.stdin.isatty():
+        return typer.prompt(
+            "Postman API key (Postman → Account Settings → API Keys)", hide_input=True
+        ).strip()
+    env_key = os.environ.get("POSTMAN_API_KEY", "").strip()
+    if env_key:
+        typer.echo(
+            "Non-interactive session detected — using POSTMAN_API_KEY from the environment."
+        )
+        return env_key
+    _echo_fail(
+        "Interactive input is unavailable (stdin is not a terminal) and POSTMAN_API_KEY "
+        "is not set. Set POSTMAN_API_KEY in your environment, or run `postman-mcp init` "
+        "from an interactive terminal."
+    )
+    raise typer.Exit(code=1)
 
 
 # --- init ---------------------------------------------------------------------------
@@ -84,7 +116,7 @@ def init(
     existing: Optional[PostmanMcpConfig] = None
     if config_path(root).exists():
         existing = load_config(root)
-        typer.echo("Existing postman-mcp.json found — re-running init (idempotent).")
+        typer.echo(f"Existing {CONFIG_FILENAME} found — re-running init (idempotent).")
 
     # 1. Detect project + input source.
     detected = detect_project(root)
@@ -117,10 +149,8 @@ def init(
     input_mode = "openapi" if openapi_source else "code"
     _echo_ok(f"Framework: {framework} · input mode: {input_mode}")
 
-    # 2. API key handshake. Key typed in terminal only.
-    api_key = typer.prompt(
-        "Postman API key (Postman → Account Settings → API Keys)", hide_input=True
-    ).strip()
+    # 2. API key handshake. Hidden prompt on a terminal; POSTMAN_API_KEY otherwise.
+    api_key = _read_api_key()
 
     # 3. Store the key by reference.
     if existing:
@@ -133,7 +163,7 @@ def init(
     typer.echo(
         "Where should the key live?\n"
         "  1) OS keychain (default)\n  2) env:POSTMAN_API_KEY\n"
-        "  3) gitignored file .postman-mcp.secret"
+        "  3) gitignored file postman/secret"
     )
     choice = typer.prompt("Choose", default=default_choice)
     api_key_ref = _KEY_REF_CHOICES.get(choice, _KEY_REF_CHOICES["1"])
@@ -169,6 +199,10 @@ def init(
         collectionId=collection_id,
         defaultInto=cfg.config.defaultInto if existing else "/",
         apiKeyRef=api_key_ref,
+        # V3.0.0 migration (docs/architecture/v3-proposal.md): new projects default to
+        # the V3 engine; re-running init on an existing project preserves whatever
+        # engine it already had, so upgrading the CLI never silently switches it.
+        engine=cfg.config.engine if existing else "v3",
     )
     save_config(cfg, root)
     _echo_ok(f"Config written to {config_path(root)}")
@@ -264,16 +298,16 @@ def doctor(
     # 1. CLI on PATH (we are running, so this passes).
     _echo_ok("postman-mcp CLI is on PATH")
 
-    # 2. postman-mcp.json exists with a collectionId.
+    # 2. postman/config.json exists with a collectionId.
     try:
         cfg = load_config(root)
     except ConfigError as exc:
         _echo_fail(f"{exc}  → fix: postman-mcp init")
         raise typer.Exit(code=1)
     if cfg.config.collectionId:
-        _echo_ok(f"postman-mcp.json present (collection {cfg.config.collectionId})")
+        _echo_ok(f"{CONFIG_FILENAME} present (collection {cfg.config.collectionId})")
     else:
-        _echo_fail("postman-mcp.json has no collectionId  → fix: postman-mcp init")
+        _echo_fail(f"{CONFIG_FILENAME} has no collectionId  → fix: postman-mcp init")
         ok = False
 
     # 3. Key resolves + GET /me returns 200.

@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from postman_mcp.input.openapi import OpenApiError, load_spec, routes_from_spec
+from postman_mcp.input.openapi import OpenApiError, _ref_name, load_spec, routes_from_spec
 from postman_mcp.models import FieldType, InputSource
 
 
@@ -46,6 +46,104 @@ def test_body_and_response_take_the_schema_ref_name(openapi_spec):
     assert post.body.name == "PaymentRequest"
     resp = next(r for r in post.responses if r.status == 201)
     assert resp.body.name == "PaymentResponse"
+
+
+# --- array/nested/enum DTO name resolution -------------------------------------------
+
+
+def test_ref_name_direct_ref():
+    assert _ref_name({"$ref": "#/components/schemas/UserDto"}) == "UserDto"
+
+
+def test_ref_name_array_of_ref_keeps_dto_name():
+    """``@ApiOkResponse({ type: UserDto, isArray: true })`` serializes to a bare array
+    schema whose $ref lives one level down on ``items`` — this must not fall back to a
+    generic ``Response200``/``RequestBody`` placeholder."""
+    schema = {"type": "array", "items": {"$ref": "#/components/schemas/UserDto"}}
+    assert _ref_name(schema) == "UserDto[]"
+
+
+def test_ref_name_nested_array_of_ref():
+    schema = {
+        "type": "array",
+        "items": {"type": "array", "items": {"$ref": "#/components/schemas/UserDto"}},
+    }
+    assert _ref_name(schema) == "UserDto[][]"
+
+
+def test_ref_name_enum_array_has_no_component_to_preserve():
+    """An array of an inline enum (no $ref anywhere) has no named component to recover —
+    falls back gracefully instead of crashing or fabricating a name."""
+    schema = {"type": "array", "items": {"type": "string", "enum": ["a", "b"]}}
+    assert _ref_name(schema) is None
+
+
+def test_ref_name_plain_object_without_ref_is_none():
+    assert _ref_name({"type": "object", "properties": {}}) is None
+
+
+def test_nested_object_field_resolves_its_own_properties(openapi_spec):
+    """A field that is itself an object (not just the top-level body) must resolve its
+    own nested fields, not collapse to an empty/opaque object."""
+    openapi_spec["components"]["schemas"]["PaymentRequest"]["allOf"][1]["properties"][
+        "billingAddress"
+    ] = {
+        "type": "object",
+        "properties": {"city": {"type": "string"}, "zip": {"type": "string"}},
+    }
+    post = next(r for r in routes_from_spec(openapi_spec) if r.method == "POST")
+    address = next(f for f in post.body.fields if f.name == "billingAddress")
+    assert address.type is FieldType.OBJECT
+    assert {f.name for f in address.fields} == {"city", "zip"}
+
+
+def test_array_of_objects_field_resolves_item_fields(openapi_spec):
+    """An array field whose items are an inline object (``items: OrderItemDto[]``, not a
+    bare top-level array response) must resolve the item's own fields."""
+    openapi_spec["components"]["schemas"]["PaymentRequest"]["allOf"][1]["properties"][
+        "items"
+    ] = {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {"sku": {"type": "string"}, "quantity": {"type": "integer"}},
+        },
+    }
+    post = next(r for r in routes_from_spec(openapi_spec) if r.method == "POST")
+    items_field = next(f for f in post.body.fields if f.name == "items")
+    assert items_field.type is FieldType.ARRAY
+    assert items_field.items.type is FieldType.OBJECT
+    assert {f.name for f in items_field.items.fields} == {"sku", "quantity"}
+
+
+def test_array_response_schema_preserves_dto_name_end_to_end(openapi_spec):
+    """The same fix, exercised through the real route mapper: a GET returning
+    ``UserDto[]`` must show up as ``resp.body.name == "UserDto[]"``, not ``Response200``."""
+    openapi_spec["components"]["schemas"]["UserDto"] = {
+        "type": "object", "properties": {"id": {"type": "string"}},
+    }
+    openapi_spec["paths"]["/users"] = {
+        "get": {
+            "operationId": "list_users",
+            "responses": {
+                "200": {
+                    "description": "OK",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "array",
+                                "items": {"$ref": "#/components/schemas/UserDto"},
+                            }
+                        }
+                    },
+                }
+            },
+        }
+    }
+    routes = routes_from_spec(openapi_spec)
+    get_users = next(r for r in routes if r.path == "/users" and r.method == "GET")
+    resp = next(r for r in get_users.responses if r.status == 200)
+    assert resp.body.name == "UserDto[]"
 
 
 def test_path_param_from_shared_parameters(openapi_spec):

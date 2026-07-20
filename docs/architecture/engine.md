@@ -1,7 +1,15 @@
 # The engine
 
-The engine is the only hard part of Postman MCP. Everything else just decides which
-routes feed into it.
+!!! info "Scope"
+    This page documents the deterministic, framework-parser pipeline (the [input
+    resolver](resolver.md) feeds it). The seven slash commands have Claude author the
+    Postman item directly instead, following the same output shape described below —
+    see the [architecture overview](overview.md). This engine is what the lower-level
+    MCP tools use for fully deterministic, LLM-free generation, and what backs the
+    independent verification pass described in [the engineering handoff](handoff.md).
+
+The engine is the only hard part of the deterministic pipeline. Everything else just
+decides which routes feed into it.
 
 > **Input:** one normalized `RouteModel`.
 > **Output:** one complete Postman Collection v2.1 item: `request`, `response[]`,

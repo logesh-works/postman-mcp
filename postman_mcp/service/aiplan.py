@@ -20,7 +20,13 @@ from postman_mcp.contract.schema import ApiModel
 from postman_mcp.git.reader import current_commit
 from postman_mcp.model.store import ModelIngestError, load_model, load_model_from_path, save_model, save_report
 from postman_mcp.models import RouteModel
-from postman_mcp.plan.compiler import PlanDocument, compile_plan, load_plan, plan_is_expired
+from postman_mcp.plan.compiler import (
+    PLANS_DIRNAME,
+    PlanDocument,
+    compile_plan,
+    load_plan,
+    plan_is_expired,
+)
 from postman_mcp.plan.render import render_plan_preview
 from postman_mcp.postman import merge
 from postman_mcp.postman.client import PostmanAuthError, PostmanError
@@ -29,6 +35,7 @@ from postman_mcp.safety.rollback import diff_rollback, render_rollback_preview
 from postman_mcp.safety.snapshots import load_snapshot, save_snapshot
 from postman_mcp.service.context import load_context
 from postman_mcp.service.sync import _resolve_into, _record_sync
+from postman_mcp.verify.graph_witness import build_graph_witness
 from postman_mcp.verify.pipeline import run_pipeline
 from postman_mcp.verify.render import render_report
 from postman_mcp.witness.engine import build_witness_set, witness_to_apim
@@ -85,8 +92,20 @@ def verify_model(model_id: str, *, project_root: Path | str = ".") -> str:
 
 
 def _witness_fallback_model(project_root: Path | str, cfg) -> tuple[str, ApiModel]:
-    """No submitted model → the witness engine's own APIM keeps everything working."""
-    witness = build_witness_set(project_root, cfg)
+    """No submitted model → keep everything working with zero LLM analysis.
+
+    ``engine: "v2"`` (default for pre-V3 projects) uses the parser witness — full
+    fidelity (schema, auth). ``engine: "v3"`` (default for new `init`s) uses the
+    graph witness instead — route identity only, no schema/auth extraction (see
+    ``docs/architecture/v3-proposal.md``'s Phase 5 evaluation for why the parsers
+    aren't removed). This fallback is a safety net for when nothing has been
+    submitted at all; the intended V3 workflow is the AI-submitted model via
+    `get_contract`/`index`/`context`/`submit_model`, which never reaches this path.
+    """
+    if getattr(cfg, "engine", "v2") == "v3":
+        witness = build_graph_witness(project_root)
+    else:
+        witness = build_witness_set(project_root, cfg)
     apim = witness_to_apim(witness, project_root=project_root, repo_commit=current_commit(project_root))
     return save_model(apim, project_root)
 
@@ -151,7 +170,7 @@ def plan(
 
     preview = render_plan_preview(doc, collection_name=ctx.collection_name)
     if dry_run:
-        (Path(ctx.project_root) / ".postman-mcp" / "plans" / f"{doc.plan_id}.json").unlink(missing_ok=True)
+        (Path(ctx.project_root) / PLANS_DIRNAME / f"{doc.plan_id}.json").unlink(missing_ok=True)
         preview = preview.replace(doc.plan_id, f"{doc.plan_id} (dry run — not persisted)")
     return report.summary + "\n\n" + preview
 
@@ -224,8 +243,10 @@ def apply(
         change = merge.apply_route(working, entry.item, route, entry.into)
         if change.value == "new":
             new += 1
-        else:
+        elif change.value == "modified":
             mod += 1
+        # "unchanged": apply_route left this entry untouched — not counted as a write,
+        # so the completion summary doesn't overstate what changed.
 
     try:
         ctx.client.update_collection(ctx.collection_id, working)

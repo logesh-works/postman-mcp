@@ -32,13 +32,12 @@ In Claude Code, in this directory:
 Actual diff preview:
 
 ```text
-| Status | Method | Route | Target | Auth | Body | Response | Source |
-|---|---|---|---|---|---|---|---|
-| [NEW] | POST | /payments | payments | Bearer | PaymentRequest | PaymentResponse | [code] |
+Collection: <your collection>
+Plan: 1 new · 0 modified
 
-Summary: 1 new · 0 modified · 0 deprecated
+[NEW] POST /payments   → payments   ✓ verified (app.py:12)
 
-Write? [y / n]   (nothing writes on n)
+Write to Postman? Re-run with confirm=true to apply.   (nothing writes on n)
 ```
 
 Or sync the whole file at once:

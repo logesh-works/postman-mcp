@@ -34,13 +34,14 @@ specific. It never guesses.
 ```text
 /postman:sync -routes/payments.py --into payments
 
-| Status | Method | Route | Target | Auth | Body | Response | Source |
-|---|---|---|---|---|---|---|---|
-| [NEW] | POST | /payments | payments | Bearer | PaymentRequest | PaymentResponse | [code] |
-| [NEW] | GET | /payments/{id} | payments | Bearer | N/A | PaymentResponse | [code] |
-| [MODIFIED] | DELETE | /payments/{id} | payments | Bearer | N/A | — | [code] |
+Collection: Acme Backend
+Plan: 2 new · 1 modified
 
-Write? [y / n]
+[NEW] POST /payments   → payments   ✓ verified (routes/payments.py:12)
+[NEW] GET /payments/{id}   → payments   ✓ verified (routes/payments.py:24)
+[MODIFY] DELETE /payments/{id}   → payments   ✓ verified (routes/payments.py:31)
+
+Write to Postman? Re-run with confirm=true to apply.
 ```
 
 Each request is matched against the live collection by `METHOD + normalized path`, so

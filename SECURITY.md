@@ -7,8 +7,8 @@ Security fixes are applied to the latest released minor version. See
 
 | Version | Supported |
 |---|---|
-| latest `0.x` | yes |
-| older `0.x`  | no, please upgrade |
+| latest `3.x` | yes |
+| older       | no, please upgrade |
 
 ## Reporting a Vulnerability
 
@@ -36,8 +36,8 @@ release notes unless you'd rather stay anonymous.
 Postman MCP is built so secrets never enter the repository:
 
 - The Postman API key is stored by reference: in the OS credential store by default, or
-  an environment variable, or a gitignored `.postman-mcp.secret` file. It's never
-  written into the committable `postman-mcp.json`.
+  an environment variable, or a gitignored `postman/secret` file. It's never
+  written into the committable `postman/config.json`.
 - The tool never asks Claude to type the key into a web form. The key is read directly
   from the terminal by the CLI during `postman-mcp init`.
 - Synced environment variables whose names match `key`, `token`, `secret`, or `password`

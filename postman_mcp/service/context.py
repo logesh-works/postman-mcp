@@ -38,7 +38,7 @@ def load_context(project_root: Path | str = ".") -> SyncContext:
     if not config.config.collectionId:
         from postman_mcp.config.store import ConfigError
 
-        raise ConfigError("No collectionId in postman-mcp.json. Run `postman-mcp init`.")
+        raise ConfigError("No collectionId in postman/config.json. Run `postman-mcp init`.")
     key = resolve_api_key(config.config.apiKeyRef, root)
     client = PostmanClient(key)
     collection = client.get_collection(config.config.collectionId)

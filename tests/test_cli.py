@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 import httpx
+import pytest
 import respx
 from typer.testing import CliRunner
 
@@ -102,6 +103,51 @@ def test_version_prints_version():
     assert __version__ in result.stdout
 
 
+# --- _read_api_key: never hangs on non-interactive stdin -----------------------------
+
+
+def test_read_api_key_prompts_hidden_on_a_real_terminal(monkeypatch):
+    monkeypatch.setattr(cli_module.sys.stdin, "isatty", lambda: True)
+    captured = {}
+
+    def fake_prompt(text, hide_input=False):
+        captured["hide_input"] = hide_input
+        return "PMAK-typed"
+
+    monkeypatch.setattr(cli_module.typer, "prompt", fake_prompt)
+    assert cli_module._read_api_key() == "PMAK-typed"
+    assert captured["hide_input"] is True
+
+
+def test_read_api_key_uses_env_var_when_non_interactive(monkeypatch):
+    """Piped/CI stdin (not a tty) must never reach the hidden prompt — it would hang
+    (getpass reads the console directly, ignoring the redirected pipe). Falls back to
+    POSTMAN_API_KEY instead."""
+    monkeypatch.setattr(cli_module.sys.stdin, "isatty", lambda: False)
+    monkeypatch.setenv("POSTMAN_API_KEY", "PMAK-from-env")
+
+    def _would_hang(*a, **kw):
+        raise AssertionError("must not call the hidden prompt when stdin isn't a tty")
+
+    monkeypatch.setattr(cli_module.typer, "prompt", _would_hang)
+    assert cli_module._read_api_key() == "PMAK-from-env"
+
+
+def test_read_api_key_fails_fast_when_non_interactive_and_no_env_var(monkeypatch):
+    """The concrete bug: non-interactive + no key available must error immediately,
+    never hang waiting for input that can never arrive."""
+    monkeypatch.setattr(cli_module.sys.stdin, "isatty", lambda: False)
+    monkeypatch.delenv("POSTMAN_API_KEY", raising=False)
+
+    def _would_hang(*a, **kw):
+        raise AssertionError("must not call the hidden prompt when stdin isn't a tty")
+
+    monkeypatch.setattr(cli_module.typer, "prompt", _would_hang)
+    with pytest.raises(cli_module.typer.Exit) as exc_info:
+        cli_module._read_api_key()
+    assert exc_info.value.exit_code == 1
+
+
 def test_doctor_missing_config_fails_with_fix(tmp_path):
     result = runner.invoke(app, ["doctor", "--path", str(tmp_path)])
     assert result.exit_code == 1
@@ -111,9 +157,10 @@ def test_doctor_missing_config_fails_with_fix(tmp_path):
 def _configured_project(tmp_path):
     cfg = PostmanMcpConfig()
     cfg.config.collectionId = COLLECTION_UID
-    cfg.config.apiKeyRef = "file:.postman-mcp.secret"
+    cfg.config.apiKeyRef = "file:postman/secret"
+    (tmp_path / "postman").mkdir(exist_ok=True)
     (tmp_path / CONFIG_FILENAME).write_text(json.dumps(cfg.model_dump()), encoding="utf-8")
-    (tmp_path / ".postman-mcp.secret").write_text("PMAK-test\n", encoding="utf-8")
+    (tmp_path / "postman/secret").write_text("PMAK-test\n", encoding="utf-8")
     register_mcp_server(tmp_path)
     install_slash_commands(tmp_path)
     return tmp_path

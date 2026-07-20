@@ -43,6 +43,7 @@ body:
         - "/postman:syncchanges"
         - "/postman:sync"
         - "/postman:syncall"
+        - "/postman:prompt"
         - "/postman:createenv"
         - "/postman:status"
         - "Other / not sure"
@@ -58,6 +59,8 @@ body:
         - Express
         - Django REST Framework
         - NestJS
+        - Flask
+        - Spring (Boot)
         - Other / N/A
     validations:
       required: true
@@ -66,7 +69,7 @@ body:
     id: input-mode
     attributes:
       label: Input mode
-      description: From your `postman-mcp.json` → `config.inputMode`.
+      description: From your `postman/config.json` → `config.inputMode`.
       options:
         - openapi
         - code
@@ -80,7 +83,7 @@ body:
       label: Environment
       description: Output of `postman-mcp version` plus your OS and Python version.
       placeholder: |
-        postman-mcp 0.1.0
+        postman-mcp 3.0.0
         Windows 11 / Python 3.12.3
       render: shell
     validations:

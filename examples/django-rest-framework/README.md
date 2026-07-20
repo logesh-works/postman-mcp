@@ -26,12 +26,13 @@ postman-mcp init        # detects Django; uses the drf-spectacular schema (opena
 ```text
 /postman:syncall
 
-| Status | Method | Route | Target | Auth | Body | Response | Source |
-|---|---|---|---|---|---|---|---|
-| [NEW] | POST | /payments | Root Collection | Bearer | PaymentSerializer | PaymentSerializer | [openapi] |
-| [NEW] | GET | /payments/{id} | Root Collection | Bearer | N/A | PaymentSerializer | [openapi] |
+Collection: <your collection>
+Plan: 2 new · 0 modified
 
-Write? [y / n]
+[NEW] POST /payments   → (root)   ✓ verified (schema)
+[NEW] GET /payments/{id}   → (root)   ✓ verified (schema)
+
+Write to Postman? Re-run with confirm=true to apply.
 ```
 
 !!! note
