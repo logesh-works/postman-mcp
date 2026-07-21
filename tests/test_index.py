@@ -280,6 +280,106 @@ def test_regex_backend_extracts_ts_classes_and_annotations(tmp_path: Path):
     }
 
 
+def _write_many_python_files(tmp_path: Path, count: int) -> None:
+    for i in range(count):
+        (tmp_path / f"mod_{i:04d}.py").write_text(
+            f"def handler_{i}():\n    return {i}\n", encoding="utf-8",
+        )
+
+
+def test_build_index_checkpoints_and_survives_a_mid_build_crash(tmp_path: Path, monkeypatch):
+    """A build interrupted right after a checkpoint must not lose the files that
+    checkpoint already covered — only the ones that were never actually reached."""
+    import postman_mcp.index as index_mod
+
+    monkeypatch.setattr(index_mod, "_CHECKPOINT_INTERVAL", 5)
+    _write_many_python_files(tmp_path, 12)
+
+    real_save_doc = index_mod.save_doc
+    calls = {"n": 0}
+
+    def crash_after_first_checkpoint(root, doc):
+        calls["n"] += 1
+        real_save_doc(root, doc)  # the checkpoint genuinely reaches disk...
+        if calls["n"] == 1:
+            raise RuntimeError("simulated kill right after the first checkpoint")
+
+    monkeypatch.setattr(index_mod, "save_doc", crash_after_first_checkpoint)
+
+    with pytest.raises(RuntimeError, match="simulated kill"):
+        index_mod.build_index(tmp_path)
+
+    # The checkpoint before the crash must have actually persisted...
+    cached = index_mod.load_cached_doc(tmp_path)
+    assert cached is not None
+    checkpointed_paths = {f["path"] for f in cached["files"]}
+    assert len(checkpointed_paths) == 5  # exactly one checkpoint's worth
+    assert len(cached["symbols"]) == 5  # each checkpointed file contributed its handler
+
+    # ...and a normal, uninterrupted retry resumes from it rather than starting over.
+    monkeypatch.setattr(index_mod, "save_doc", real_save_doc)
+    resumed = index_mod.build_index(tmp_path)
+    assert len(resumed.files) == 12
+    assert len(resumed.symbols) == 12  # one handler function per file
+
+    # End state must be identical to a build that was never interrupted at all.
+    fresh_dir = tmp_path.parent / (tmp_path.name + "_fresh")
+    fresh_dir.mkdir()
+    _write_many_python_files(fresh_dir, 12)
+    clean = index_mod.build_index(fresh_dir)
+    assert {s.name for s in clean.symbols} == {s.name for s in resumed.symbols}
+
+
+def test_build_index_survives_a_pathological_file(tmp_path: Path, monkeypatch):
+    """One file that blows up symbol extraction must not take the whole build down
+    with it — every other file's symbols still make it into the index."""
+    import postman_mcp.index as index_mod
+
+    (tmp_path / "good.py").write_text("def fine():\n    return 1\n", encoding="utf-8")
+    (tmp_path / "bad.py").write_text("def also_fine():\n    return 2\n", encoding="utf-8")
+
+    real_extract = index_mod.extract_symbols
+
+    def flaky_extract(path, language, text):
+        if path.endswith("bad.py"):
+            raise RecursionError("simulated pathological input")
+        return real_extract(path, language, text)
+
+    monkeypatch.setattr(index_mod, "extract_symbols", flaky_extract)
+
+    result = index_mod.build_index(tmp_path)  # must not raise
+    names = {s.name for s in result.symbols}
+    assert "fine" in names
+    assert "also_fine" not in names  # the bad file simply contributes nothing
+    assert {f.path for f in result.files} == {"good.py", "bad.py"}  # still inventoried
+
+
+def test_cache_save_doc_is_atomic(tmp_path: Path, monkeypatch):
+    """A write that fails partway through must never corrupt an existing cache, and
+    a successful write must never leave its temp file behind."""
+    from postman_mcp.index import cache as cache_mod
+
+    cache_mod.save_doc(tmp_path, {"version": 1, "files": [], "symbols": [],
+                                   "imports": [], "services": [], "corpus": [], "candidates": []})
+    good_doc = cache_mod.load_cached_doc(tmp_path)
+    assert good_doc is not None
+
+    def boom(*args, **kwargs):
+        raise OSError("simulated disk failure mid-write")
+
+    monkeypatch.setattr(Path, "write_text", boom)
+    with pytest.raises(OSError):
+        cache_mod.save_doc(tmp_path, {"version": 2, "files": [], "symbols": [],
+                                       "imports": [], "services": [], "corpus": [], "candidates": []})
+
+    monkeypatch.undo()
+    # The original, good cache must be untouched by the failed write.
+    assert cache_mod.load_cached_doc(tmp_path) == good_doc
+    # And no stray .tmp files were left behind.
+    leftovers = list((tmp_path / cache_mod.CACHE_DIR).glob("*.tmp"))
+    assert leftovers == []
+
+
 def test_candidate_miner_finds_call_based_registrations(tmp_path: Path):
     """Express-style `router.get(path, handler)` is a call, not a declaration —
     symbol extraction can't see it, but the framework-blind candidate miner must."""
