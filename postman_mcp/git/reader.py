@@ -10,6 +10,8 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
+from postman_mcp.git.run import run_git
+
 
 class GitError(Exception):
     """Raised when git is unavailable or a command fails."""
@@ -17,16 +19,10 @@ class GitError(Exception):
 
 def _git(args: list[str], project_root: Path | str) -> str:
     try:
-        proc = subprocess.run(
-            ["git", *args],
-            cwd=str(project_root),
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
+        proc = run_git(args, project_root, timeout=30)
     except FileNotFoundError as exc:
         raise GitError("git is not installed or not on PATH") from exc
-    except subprocess.SubprocessError as exc:  # pragma: no cover - defensive
+    except subprocess.SubprocessError as exc:  # covers GitTimeout too
         raise GitError(str(exc)) from exc
     if proc.returncode != 0:
         raise GitError(proc.stderr.strip() or f"git {' '.join(args)} failed")

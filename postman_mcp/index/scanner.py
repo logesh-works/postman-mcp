@@ -13,6 +13,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from postman_mcp.git.run import run_git
+
 MAX_FILE_BYTES = 1_000_000  # symbol extraction on bigger files is never worth it
 
 LANGUAGE_BY_EXT = {
@@ -91,11 +93,10 @@ def scan_repo(root: Path) -> list[FileRecord]:
 def _git_files(root: Path) -> list[str] | None:
     """``git ls-files`` including untracked-but-not-ignored; None if not a repo."""
     try:
-        out = subprocess.run(
-            ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
-            cwd=root, capture_output=True, text=True, timeout=30, check=True,
-        )
+        out = run_git(["ls-files", "--cached", "--others", "--exclude-standard"], root, timeout=30)
     except (OSError, subprocess.SubprocessError):
+        return None
+    if out.returncode != 0:
         return None
     files = [line.strip() for line in out.stdout.splitlines() if line.strip()]
     # git lists deleted-but-tracked files too; keep only what exists.

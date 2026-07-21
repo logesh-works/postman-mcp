@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Literal, Optional
 
 from postman_mcp.contract.schema import Evidence
+from postman_mcp.git.run import run_git
 
 EvidenceVerdict = Literal["verified", "fabricated", "stale", "unreadable", "confinement_violation"]
 
@@ -66,13 +67,7 @@ def _read_lines(path: Path) -> Optional[list[str]]:
 def _git_show(project_root: Path, commit: str, rel_file: str) -> Optional[str]:
     """``git show {commit}:{file}`` — ``None`` if the commit or file isn't available."""
     try:
-        proc = subprocess.run(
-            ["git", "show", f"{commit}:{rel_file}"],
-            cwd=str(project_root),
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
+        proc = run_git(["show", f"{commit}:{rel_file}"], project_root, timeout=15)
     except (FileNotFoundError, subprocess.SubprocessError):
         return None
     if proc.returncode != 0:
