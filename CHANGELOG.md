@@ -83,6 +83,16 @@ elsewhere in the codebase. See "Deprecated" and "Migration notes" below.
   partway through. The index build now checkpoints to disk periodically, so a resumed
   build picks up where it left off, and cache writes are now atomic so an interrupted
   write can never corrupt the cache.
+- **A sync could hang indefinitely — confirmed with a live process trace, not just
+  suspected.** Every git-shelling call (`syncchanges`'s change detection, the index
+  build's file listing, and the citation staleness check) used
+  `subprocess.run(capture_output=True, timeout=...)`, which is not reliably bounded by
+  its own timeout on Windows: the pipes it captures through only signal end-of-output
+  once *every* handle to them is closed, not just the one process that was spawned — so
+  an unrelated concurrent `git` process (an IDE's own background git integration, for
+  instance) holding a duplicate of that handle could block the read forever regardless
+  of the declared timeout. All three call sites now go through a shared helper that
+  captures output via real files instead of pipes, which has no such hazard.
 
 ### Deprecated
 - **The original six-command tool surface** (`syncapi`/`sync`/`syncall`/`syncchanges`/
