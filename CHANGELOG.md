@@ -75,6 +75,14 @@ elsewhere in the codebase. See "Deprecated" and "Migration notes" below.
   Linux/macOS it could slip past the confinement check instead of being rejected as
   outside the project root. The check is now explicit and behaves identically on every
   host OS.
+- **A sync could look permanently stuck on a large, previously-unindexed repository.**
+  Every `sync_files` call (including preview-only ones) builds a repository index for
+  citation verification; that build only saved its progress once, at the very end. On a
+  big repo, an interrupted or cancelled build lost everything and the next attempt
+  restarted the full scan from zero — indefinitely, if something kept cutting it off
+  partway through. The index build now checkpoints to disk periodically, so a resumed
+  build picks up where it left off, and cache writes are now atomic so an interrupted
+  write can never corrupt the cache.
 
 ### Deprecated
 - **The original six-command tool surface** (`syncapi`/`sync`/`syncall`/`syncchanges`/
