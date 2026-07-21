@@ -380,6 +380,27 @@ def test_cache_save_doc_is_atomic(tmp_path: Path, monkeypatch):
     assert leftovers == []
 
 
+def test_cache_load_treats_corrupt_json_as_absent_not_an_error(tmp_path: Path):
+    """A cache file that's present but not valid JSON — hand-edited, truncated by
+    something outside our own atomic write, whatever — must fall back to `None`
+    (triggering a full rebuild) rather than raising. This is the safety net the
+    atomic write in save_doc() is there to make unnecessary in the common case,
+    not a replacement for it."""
+    from postman_mcp.index import cache as cache_mod
+
+    path = cache_mod.cache_path(tmp_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("{not valid json", encoding="utf-8")
+
+    assert cache_mod.load_cached_doc(tmp_path) is None
+    # And build_index() must recover cleanly (a full rebuild) rather than propagating
+    # the error — a corrupt cache should never take down an otherwise-healthy sync.
+    (tmp_path / "a.py").write_text("def f():\n    return 1\n", encoding="utf-8")
+    index = build_index(tmp_path)
+    assert not index.cache_hit
+    assert {s.name for s in index.symbols} == {"f"}
+
+
 def test_candidate_miner_finds_call_based_registrations(tmp_path: Path):
     """Express-style `router.get(path, handler)` is a call, not a declaration —
     symbol extraction can't see it, but the framework-blind candidate miner must."""
